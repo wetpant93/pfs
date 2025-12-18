@@ -50,15 +50,16 @@ lemma exists_crossing_edge {v w : V}
      · exact ⟨u, h₀, x, h, ux⟩
 
 
-lemma walk_stays' {v w : V} (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.Reachable v w) : w ∈ S := by
+lemma closed_mem_of_reachable {v w : V}
+  (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.Reachable v w) : w ∈ S := by
   by_contra! wns
   exact h₀ <| exists_crossing_edge vs wns h₁
 
-lemma walk_stays {v w : V} {S : Set V}
+lemma closed_reachable_induce {v w : V} {S : Set V}
   (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.Reachable v w) :
     ∃(ws : w ∈ S),  (G.induce S).Reachable ⟨v, vs⟩ ⟨w, ws⟩ := by
 
-  have ws := walk_stays' vs h₀ h₁
+  have ws := closed_mem_of_reachable vs h₀ h₁
 
   rcases h₁ with ⟨p⟩
   have hw: (x : V) → x ∈ p.support → x ∈ S := by
@@ -96,7 +97,7 @@ lemma closed_comp_ι_supp_subset_closed (h : G.IsClosed S) (C : (G.induce S).Con
   intro x hx
   obtain ⟨⟨v, vs⟩, rfl⟩ := C.nonempty_supp
   rw[comp_ι_mk, ConnectedComponent.mem_supp_iff, ConnectedComponent.eq] at hx
-  exact walk_stays' vs h hx.symm
+  exact closed_mem_of_reachable vs h hx.symm
 
 
 lemma closed_comp_ι_inj (h : G.IsClosed S) : Function.Injective (G.comp_ι S) := by
@@ -104,7 +105,7 @@ lemma closed_comp_ι_inj (h : G.IsClosed S) : Function.Injective (G.comp_ι S) :
   obtain ⟨⟨v, vs⟩, rfl⟩ := C.nonempty_supp
   obtain ⟨w, rfl⟩ := C'.nonempty_supp
   rw[comp_ι_mk, comp_ι_mk, ConnectedComponent.eq] at h'
-  exact ConnectedComponent.sound (walk_stays vs h h').2
+  exact ConnectedComponent.sound (closed_reachable_induce vs h h').2
 
 lemma comp_ι_surj (C : G.ConnectedComponent) (CS : C.supp ⊆ S) :
   ∃ C' : (G.induce S).ConnectedComponent, (G.comp_ι S) C' = C := by
@@ -146,14 +147,6 @@ lemma closed_comp_ι_supp_card (h : G.IsClosed S) (C : (G.induce S).ConnectedCom
   rw[closed_comp_ι_supp, Set.ncard_image_of_injective]
   · exact Subtype.coe_injective
   · assumption
-
-
-lemma comp_subset_iff (h : G.IsClosed S) (C : G.ConnectedComponent) :
-  C.supp ⊆ S ↔ ¬ C.supp ⊆ Sᶜ :=  by
-  constructor
-  intro h'
-  sorry
-
 
 
 variable [Fintype V] in
@@ -242,7 +235,6 @@ lemma iso_comp_card_eq (φ : G ≃g G') :
     simpa
 
 lemma iso_odd_card_eq (φ : G ≃g G') : G.oddComponents.ncard = G'.oddComponents.ncard := by
-
   let comp_card_eq := iso_comp_card_eq φ
   rw[Set.ncard_congr]
   · intro C _
