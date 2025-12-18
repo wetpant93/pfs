@@ -90,19 +90,14 @@ lemma closed_comp_dichotomy (h : G.IsClosed S) (C : G.ConnectedComponent) :
 
   exact h <| exists_crossing_edge this vns <| C.reachable_of_mem_supp wc vc
 
-lemma comp_subset_iff (h : G.IsClosed S) (C : G.ConnectedComponent) :
-  C.supp ⊆ S ↔ ¬ C.supp ⊆ Sᶜ :=  by
-  constructor
-  intro h'
-  sorry
 
-
-lemma comp_ι_supp_subset_closed (h : G.IsClosed S) (C : (G.induce S).ConnectedComponent) :
+lemma closed_comp_ι_supp_subset_closed (h : G.IsClosed S) (C : (G.induce S).ConnectedComponent) :
   ((G.comp_ι S) C).supp ⊆ S := by
   intro x hx
   obtain ⟨⟨v, vs⟩, rfl⟩ := C.nonempty_supp
   rw[comp_ι_mk, ConnectedComponent.mem_supp_iff, ConnectedComponent.eq] at hx
   exact walk_stays' vs h hx.symm
+
 
 lemma closed_comp_ι_inj (h : G.IsClosed S) : Function.Injective (G.comp_ι S) := by
   intro C C' h'
@@ -115,8 +110,8 @@ lemma comp_ι_surj (C : G.ConnectedComponent) (CS : C.supp ⊆ S) :
   ∃ C' : (G.induce S).ConnectedComponent, (G.comp_ι S) C' = C := by
   obtain ⟨v, vs⟩ := C.nonempty_supp
   use (G.induce S).connectedComponentMk ⟨v, CS vs⟩
-  rw[comp_ι_mk, ← ConnectedComponent.mem_supp_iff]
-  exact vs
+  simpa
+
 
 noncomputable
 def comp_ι_inv (C : G.ConnectedComponent) (CS : C.supp ⊆ S) :
@@ -129,61 +124,81 @@ lemma comp_ι_inv_comp_ι (C : G.ConnectedComponent) (CS : C.supp ⊆ S) :
 
 lemma comp_ι_comp_ι_inv (C : (G.induce S).ConnectedComponent) (h : G.IsClosed S) :
   ∃(CS : (G.comp_ι S C).supp ⊆ S), (G.comp_ι_inv (G.comp_ι S C) CS) = C := by
-  use comp_ι_supp_subset_closed h C
+  use closed_comp_ι_supp_subset_closed h C
   apply closed_comp_ι_inj h
   apply comp_ι_inv_comp_ι
 
 
-noncomputable
-def f' (h : G.IsClosed S) :
- (G.induce S).ConnectedComponent ⊕ (G.induce Sᶜ).ConnectedComponent ≃ G.ConnectedComponent where
-  toFun := Sum.elim (G.comp_ι S) (G.comp_ι Sᶜ)
-  invFun := by
-    intro C; by_cases CS : C.supp ⊆ S
-    · exact Sum.inl <| G.comp_ι_inv C CS
-    · exact Sum.inr <| G.comp_ι_inv C <| (closed_comp_dichotomy h C).resolve_left CS
+lemma closed_comp_ι_supp (h : G.IsClosed S) (C : (G.induce S).ConnectedComponent) :
+  (G.comp_ι S C).supp = G.ι '' C.supp := by
+  ext x; constructor
+  · intro hx
+    use ⟨x, closed_comp_ι_supp_subset_closed h C <| hx⟩
+    refine ⟨?_, by rfl⟩
+    apply closed_comp_ι_inj h
+    simpa
+  rintro ⟨_, ⟨hy', hy⟩⟩
+  rw[← hy', comp_ι_mk, hy]
+  rfl
 
-  left_inv := by
-    rintro (C' | C')
-    · dsimp
-      rw[dif_pos (comp_ι_supp_subset_closed h C')]
-      congr; exact (comp_ι_comp_ι_inv C' h).2
-    · dsimp
-      have h' := (cmpl_of_closed_closed h)
-      rw[dif_neg]
-      · congr; exact (comp_ι_comp_ι_inv C' h').2
-      obtain ⟨v, hv⟩ := (G.comp_ι Sᶜ C').nonempty_supp
-      intro h''
-      have vsc: v ∈ Sᶜ := (comp_ι_supp_subset_closed h' C') hv
-      have vs: v ∈ S := h'' hv
-      contradiction
-
-  right_inv := by
-    intro C
-    dsimp; split
-    · dsimp
-      apply comp_ι_inv_comp_ι
-
-    · dsimp
-      apply comp_ι_inv_comp_ι
+lemma closed_comp_ι_supp_card (h : G.IsClosed S) (C : (G.induce S).ConnectedComponent) :
+  (G.comp_ι S C).supp.ncard = C.supp.ncard := by
+  rw[closed_comp_ι_supp, Set.ncard_image_of_injective]
+  · exact Subtype.coe_injective
+  · assumption
 
 
-lemma odd_comp_eq' (h : G.IsClosed S) :
+lemma comp_subset_iff (h : G.IsClosed S) (C : G.ConnectedComponent) :
+  C.supp ⊆ S ↔ ¬ C.supp ⊆ Sᶜ :=  by
+  constructor
+  intro h'
+  sorry
+
+
+
+variable [Fintype V] in
+lemma odd_comp_eq (h : G.IsClosed S) :
   (G.induce S).oddComponents.ncard + (G.induce Sᶜ).oddComponents.ncard = G.oddComponents.ncard := by
-  let h_compl := cmpl_of_closed_closed h
+  let hc := cmpl_of_closed_closed h
   let ImS  := (G.induce S).oddComponents.image <| G.comp_ι S
   let ImSc := (G.induce Sᶜ).oddComponents.image <| G.comp_ι Sᶜ
 
   let ImScard  := Set.ncard_image_of_injective (G.induce S).oddComponents <| closed_comp_ι_inj h
-  let ImSccard := Set.ncard_image_of_injective (G.induce Sᶜ).oddComponents <| closed_comp_ι_inj h_compl
+  let ImSccard := Set.ncard_image_of_injective (G.induce Sᶜ).oddComponents <| closed_comp_ι_inj hc
 
   have ImD: Disjoint ImS ImSc := by
       rw[Set.disjoint_iff]
-      rintro x ⟨⟨xs', ⟨_, xim⟩⟩, ⟨xsc, ⟨_, ximsc⟩⟩⟩
-      rcases (closed_comp_dichotomy h) x with xs | xs
-      rw[← ximsc] at xs
-      let := comp_ι_supp_subset_closed h_compl xsc
-      sorry
+      rintro x ⟨⟨xs, ⟨_, xim⟩⟩, ⟨xsc, ⟨_, ximsc⟩⟩⟩
+      obtain ⟨⟨y,ys⟩, rfl⟩ := xs.nonempty_supp
+      obtain ⟨⟨z,zs⟩, rfl⟩ := xsc.nonempty_supp
+      rw[← ximsc, comp_ι_mk, comp_ι_mk, ConnectedComponent.eq] at xim
+      exact h <| exists_crossing_edge ys zs xim
+
+  have Imss: ImS ∪ ImSc ⊆ G.oddComponents := by
+    rintro x (hx | hx) <;> {
+      obtain ⟨w, odd, rfl⟩ := hx
+      simp
+      rw[closed_comp_ι_supp_card]
+      assumption'
+    }
+
+  have Gss: G.oddComponents ⊆ ImS ∪ ImSc := by
+    intro C _
+    rcases closed_comp_dichotomy h C with (h' | h')
+    · left
+      use comp_ι_inv C h'
+      simp[comp_ι_inv_comp_ι]
+      rw[← closed_comp_ι_supp_card, comp_ι_inv_comp_ι]
+      assumption'
+
+    · right
+      use comp_ι_inv C h'
+      simp[comp_ι_inv_comp_ι]
+      rw[← closed_comp_ι_supp_card, comp_ι_inv_comp_ι]
+      assumption'
+
+  rwa[← ImScard, ← ImSccard, ← Set.ncard_union_eq, Set.Subset.antisymm Imss Gss]
+
 
 lemma comp_is_closed (C : G.ConnectedComponent) : G.IsClosed C.supp := by
   rintro ⟨x, hx, y, hy, xy⟩
@@ -200,106 +215,13 @@ lemma pullback_closed_is_closed (B : Set V) (h₁ : G.IsClosed S) :
 
 lemma iso_closed_is_closed (φ : G ≃g G') (h : G.IsClosed S) : G'.IsClosed (φ '' S) := by
   rintro ⟨x', hx, y', hy, x'y'⟩
-  simp at hx hy
+  simp at hy
   rcases hx with ⟨x, ⟨xs, imx⟩⟩
   let imy := RelIso.apply_symm_apply φ y'
   by_cases h': φ.symm y' ∈ S
   · exact hy (φ.symm y') h' imy
   rw[← imx, ← imy] at x'y'
   exact h ⟨x, xs, φ.symm y', h', (Iso.map_adj_iff φ).1 x'y'⟩
-
-lemma comp_induce_eq_of_closed' {S : Set V} (C : (G.induce S).ConnectedComponent)
-  (h₁ : G.IsClosed S) :
-  ∃ C' : G.ConnectedComponent, C'.supp = C.supp ∧ C'.supp ⊆ S := by
-
-  obtain ⟨⟨v, vs⟩, vc⟩ := C.nonempty_supp
-  use G.connectedComponentMk v
-  constructor
-  · ext x
-    constructor
-    · intro h
-      rw[ConnectedComponent.mem_supp_iff] at h
-      symm at h
-      apply ConnectedComponent.exact at h
-      by_contra!
-      by_cases xs: x ∉ S
-      · exact h₁ <| exists_crossing_edge vs xs h
-      · push_neg at xs
-
-        have Gsreach: (G.induce S).Reachable ⟨v, vs⟩ ⟨x, xs⟩ := (walk_stays vs h₁ h).2
-        have: ⟨x, xs⟩ ∈ C.supp := walk_stays' vc (comp_is_closed C) Gsreach
-
-        have: x ∈ Subtype.val '' C.supp := Set.mem_image_of_mem Subtype.val this
-        contradiction
-
-    · rintro ⟨_, ⟨hx, rfl⟩⟩
-      rw[ConnectedComponent.mem_supp_iff, ConnectedComponent.eq]
-      rw[ConnectedComponent.mem_supp_iff] at *
-      rw[← vc, ConnectedComponent.eq] at hx
-      exact hx.map (Embedding.induce S).toHom
-
-  intro y h
-  rw[ConnectedComponent.mem_supp_iff, ConnectedComponent.eq] at h
-  exact (walk_stays vs h₁ h.symm).1
-
-lemma comp_induce_eq_of_closed {S : Set V} (C : (G.induce S).ConnectedComponent)
-  (h₁ : G.IsClosed S) :
-  ∃ C' : G.ConnectedComponent, C'.supp = C.supp := by
-
-  obtain ⟨⟨v, vs⟩, vc⟩ := C.nonempty_supp
-  use G.connectedComponentMk v
-  ext x; constructor
-  · intro h
-    rw[ConnectedComponent.mem_supp_iff] at h
-    symm at h
-    apply ConnectedComponent.exact at h
-    by_contra!
-    by_cases xs: x ∉ S
-    · exact h₁ <| exists_crossing_edge vs xs h
-    · push_neg at xs
-      have Gsreach: (G.induce S).Reachable ⟨v, vs⟩ ⟨x, xs⟩ := by
-        rcases walk_stays vs h₁ h with ⟨xs, walk⟩
-        exact walk
-
-      have: ⟨x, xs⟩ ∈ C.supp := by
-        rw[ConnectedComponent.mem_supp_iff]
-        rw[ConnectedComponent.mem_supp_iff] at vc
-        rw[← vc]
-        rw[ConnectedComponent.eq]
-        symm
-        exact Gsreach
-
-      have: x ∈ Subtype.val '' C.supp := Set.mem_image_of_mem Subtype.val this
-      contradiction
-
-  intro h
-  rw[Set.mem_image] at h
-  rcases h with ⟨_, ⟨hx, rfl⟩⟩
-  rw[ConnectedComponent.mem_supp_iff, ConnectedComponent.eq]
-  rw[ConnectedComponent.mem_supp_iff] at *
-  rw[← vc, ConnectedComponent.eq] at hx
-  exact hx.map (Embedding.induce S).toHom
-
-
-
-noncomputable
-def cmap (h : G.IsClosed S)
-  (C : (G.induce S).ConnectedComponent) : G.ConnectedComponent :=
-  (comp_induce_eq_of_closed C h).choose
-
-
-lemma cmap_supp_eq (h : G.IsClosed S) (C : (G.induce S).ConnectedComponent)
-  : (cmap h C).supp = C.supp := by
-  exact (comp_induce_eq_of_closed C h).choose_spec
-
-
-lemma cmap_inj (h : G.IsClosed S) : Function.Injective (cmap h) := by
-  intro C C' h'
-  let i₀ := cmap_supp_eq h C
-  let i₁ := cmap_supp_eq h C'
-  rw[← h', i₀] at i₁
-  let supp_eq := (Set.image_eq_image Subtype.val_injective).1 i₁
-  rwa[← ConnectedComponent.supp_inj]
 
 
 lemma iso_comp_card_eq (φ : G ≃g G') :
@@ -321,21 +243,21 @@ lemma iso_comp_card_eq (φ : G ≃g G') :
 
 lemma iso_odd_card_eq (φ : G ≃g G') : G.oddComponents.ncard = G'.oddComponents.ncard := by
 
-  let supp_card_eq := iso_comp_card_eq φ
+  let comp_card_eq := iso_comp_card_eq φ
   rw[Set.ncard_congr]
   · intro C _
     exact C.map φ.toHom
   · intro C Codd
     simp at *
-    rwa[← supp_card_eq C]
+    rwa[← comp_card_eq C]
   · intro C C' _ _ h
     let mapped := congr_arg (ConnectedComponent.map φ.symm.toHom) h
     rw[ConnectedComponent.map_comp] at mapped
-    simp at mapped
-    exact mapped
+    simpa using mapped
+
   intro C Codd
   use C.map φ.symm.toHom
-  let p := supp_card_eq <| C.map φ.symm.toHom
+  let p := comp_card_eq <| C.map φ.symm.toHom
   rw[ConnectedComponent.map_comp] at p
   simp at *
   rwa[p]
@@ -383,11 +305,11 @@ variable [Fintype V] [Fintype V']
 
 def induce_induce_iso (G : SimpleGraph V) (C : Set {x // x ∈ S}) :
   (G.induce S).induce C ≃g (G.induce <| (↑) '' C) where
-
   toFun := by
     rintro ⟨⟨s, hs⟩, hc⟩
     use s
     use ⟨s, hs⟩
+
   invFun := by
     rintro ⟨s, hs⟩
     have: s ∈ S := by rcases hs with ⟨⟨_, hs'⟩, ⟨_, rfl⟩⟩; exact hs'
@@ -404,120 +326,11 @@ lemma odd_comp_eq_zero_induce_even_comp
   (C : G.ConnectedComponent) (h : Even C.supp.ncard) :
   (G.induce C.supp).oddComponents.ncard = 0 := by
   rw[Set.ncard_eq_zero, Set.eq_empty_iff_forall_notMem]
-  intro C'
-  rcases comp_induce_eq_of_closed' C' (comp_is_closed C) with ⟨C'', hc, hc'⟩
-  obtain ⟨_, vc⟩ := C''.nonempty_supp
-  rw[ConnectedComponent.eq_of_common_vertex vc <| hc' vc] at hc
-  simp
-  let card_eq := congr_arg Set.ncard hc
-  rw[Set.ncard_image_of_injective C'.supp Subtype.val_injective] at card_eq
-  rwa[← card_eq]
-
-
-
-lemma odd_comp_eq (h : G.IsClosed S) :
-  (G.induce S).oddComponents.ncard + (G.induce Sᶜ).oddComponents.ncard = G.oddComponents.ncard := by
-
-  let h_compl := cmpl_of_closed_closed h
-
-
-  let ImS := (G.induce S).oddComponents.image <| cmap h
-  let ImSc := (G.induce Sᶜ).oddComponents.image <| cmap h_compl
-
-  let fS_card := Set.ncard_image_of_injective (G.induce S).oddComponents (cmap_inj h)
-  let fSc_card := Set.ncard_image_of_injective (G.induce Sᶜ).oddComponents (cmap_inj h_compl)
-
-  have ImD: Disjoint ImS ImSc := by
-    by_contra! h
-    rw[Set.not_disjoint_iff] at h
-    rcases h with ⟨C, hs, hsc⟩
-    simp[ImS, ImSc] at hs hsc
-    rcases hs with ⟨Cs, _, hs⟩
-    rcases hsc with ⟨Csc, _, hsc⟩
-    obtain ⟨c, hc⟩ := C.nonempty_supp
-
-    rw[← ConnectedComponent.supp_inj, cmap_supp_eq h Cs] at hs
-    rw[← ConnectedComponent.supp_inj, cmap_supp_eq h_compl Csc] at hsc
-
-    have cinS: c ∈ S := by
-      rw[← hs] at hc
-      rw[Set.mem_image] at hc
-      rcases hc with ⟨x, ⟨h₀, h₁⟩⟩
-      obtain ⟨x, xs⟩ := x
-      rwa[← h₁]
-
-    have cinSc: c ∈ Sᶜ := by
-      rw[← hsc] at hc
-      rw[Set.mem_image] at hc
-      rcases hc with ⟨x, ⟨h₀, h₁⟩⟩
-      obtain ⟨x, xs⟩ := x
-      rwa[← h₁]
-
-    contradiction
-
-  have cm: (ImS ∪ ImSc).ncard = ImS.ncard + ImSc.ncard := by
-    rw[Set.ncard_union_eq_iff]
-    exact ImD
-
-  have Imss: ImS ∪ ImSc ⊆ G.oddComponents := by
-    intro x h
-    rcases h with (h | h) <;> {
-      simp[ImS, ImSc] at h
-      rcases h with ⟨C, ⟨h₀,h₁⟩⟩
-      simp
-      rwa[← h₁, cmap_supp_eq, Set.ncard_image_of_injective]
-      exact Subtype.val_injective
-    }
-
-  have Gss : G.oddComponents ⊆ ImS ∪ ImSc := by
-    intro C COdd
-    obtain ⟨v, vc⟩ := C.nonempty_supp
-    by_cases h': v ∈ S
-    · left
-      let C' := (G.induce S).connectedComponentMk ⟨v, h'⟩
-      have vinC' : ⟨v, h'⟩ ∈ C'.supp := rfl
-      use C'
-      let ImC' := cmap h C'
-      let ImC'_supp := cmap_supp_eq h C'
-      have: v ∈ ImC'.supp := by
-        rw[ImC'_supp]
-        use ⟨v, h'⟩
-      rw[ConnectedComponent.mem_supp_iff] at this vc
-      rw[this] at vc
-      have: C'.supp.ncard = C.supp.ncard := by
-        have: (Subtype.val '' C'.supp).ncard = C'.supp.ncard :=
-          Set.ncard_image_of_injective C'.supp Subtype.val_injective
-        rw[← vc, ← this, ImC'_supp]
-      simp at COdd
-      simp
-      rw[this]
-      exact ⟨COdd, vc⟩
-
-    · right
-      let C' := (G.induce Sᶜ).connectedComponentMk ⟨v, h'⟩
-      have vinC' : ⟨v, h'⟩ ∈ C'.supp := rfl
-      use C'
-      let ImC' := cmap h_compl C'
-      let ImC'_supp := cmap_supp_eq h_compl C'
-      have: v ∈ ImC'.supp := by
-        rw[ImC'_supp]
-        use ⟨v, h'⟩
-      rw[ConnectedComponent.mem_supp_iff] at this vc
-      rw[this] at vc
-      have: C'.supp.ncard = C.supp.ncard := by
-        have: (Subtype.val '' C'.supp).ncard = C'.supp.ncard :=
-          Set.ncard_image_of_injective C'.supp Subtype.val_injective
-        rw[← vc, ← this, ImC'_supp]
-      simp at COdd
-      simp
-      rw[this]
-      exact ⟨COdd, vc⟩
-
-
-  rw[← fS_card, ← fSc_card, ← cm, Set.Subset.antisymm Imss Gss]
-
-
-
+  rintro C'; simp
+  obtain ⟨⟨x, xc⟩, rfl⟩ := C'.nonempty_supp
+  rwa[← closed_comp_ι_supp_card (comp_is_closed C),
+        comp_ι_mk,
+        (ConnectedComponent.mem_supp_iff C (G.ι ⟨x, xc⟩)).1 xc]
 
 
 noncomputable
@@ -558,8 +371,6 @@ lemma edmond_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmond
     apply lt_irrefl at h_lt
     contradiction
   · exact h'
-
-
 
 
 lemma one_factor_iff (G : SimpleGraph V) : (∃ (B : Set V),
@@ -726,8 +537,6 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
           _ = d G T := rfl
 
       linarith[edmond_gallai_is_maximal_card G tutte_eq]
-
-
 
 
 
