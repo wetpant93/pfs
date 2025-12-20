@@ -24,6 +24,84 @@ def IsClosed (G : SimpleGraph V) (S : Set V) : Prop :=
 def IsFactorCritical : Prop :=
     ∀ v : V, ∃ M : G.Subgraph, M.IsMatching ∧ M.support = {v}ᶜ
 
+
+def IsFactorCriticalArea (G : SimpleGraph V) (S : Set V) : Prop :=
+  ∀ v ∈ S, ∃ M : G.Subgraph, M.IsMatching ∧ M.support = S \ {v}
+
+
+def IsMatchableToComps (S : Set V) : Prop :=
+  ∃ (f : S → (G.induce Sᶜ).ConnectedComponent),
+  Function.Injective f ∧ (∀ s : S, ∃ y ∈ (f s), G.Adj ↑s ↑y)
+
+
+
+
+lemma exists_of_disjoint_sets_of_injective {A B : Set V} (f : A → B) (hd : Disjoint A B)
+  (hf : ∀ a : A, G.Adj a (f a)) (hinj : Function.Injective f) :
+  ∃ M : G.Subgraph, M.verts = A ∪ (↑(Set.range f)) ∧ M.IsMatching := by
+  use {
+      verts := A ∪ (↑(Set.range f))
+      Adj x y := (∃ (ha: x ∈ A), f ⟨x, ha⟩ = y) ∨ (∃ (ha: y ∈ A), f ⟨y, ha⟩ = x)
+      adj_sub := by
+        rintro v w (⟨ha, rfl⟩ | ⟨ha, rfl⟩)
+        · exact hf ⟨v, ha⟩
+        · exact (hf ⟨w, ha⟩).symm
+      edge_vert := by
+        rintro v w (⟨ha, h⟩ | ⟨ha, rfl⟩)
+        · left
+          exact ha
+        · right
+          use f ⟨w, ha⟩
+          refine ⟨?_, rfl⟩
+          use ⟨w, ha⟩
+  }
+  simp only [Subgraph.IsMatching, Set.mem_union, true_and]
+  rintro v (hv | ⟨⟨v', vb'⟩, ⟨⟨⟨w, wa⟩, hw⟩, h⟩⟩ )
+  · use f ⟨v, hv⟩
+    simp only [hv, exists_const, true_or,
+               true_and, exists_true_left]
+    rintro y (rfl | ⟨ha, h⟩)
+    · rfl
+    · have: v ∈ B := by
+        rw[← h]
+        obtain ⟨_ , hb⟩ := f ⟨y, ha⟩
+        exact hb
+      exfalso
+      exact hd.le_bot ⟨hv, this⟩
+  use w
+  simp only [wa, exists_true_left, hw, h, or_true, true_and]
+  rintro y (⟨va, _⟩ | ⟨hy, hy'⟩)
+  · have vb: v ∈ B := by
+      rw[← h]
+      exact vb'
+    exfalso
+    exact hd.le_bot ⟨va, vb⟩
+  rw[← Subtype.val_inj, h, ← hy', Subtype.val_inj] at hw
+  apply hinj at hw
+  rw[← Subtype.val_inj] at hw
+  exact hw.symm
+
+
+open Subgraph in
+lemma factor_critcal_image (h : G.IsFactorCriticalArea S) (f : G ↪g G') :
+  G'.IsFactorCriticalArea (f '' S) := by
+  rintro s ⟨s', ⟨hs, hs'⟩⟩
+  choose M hM hM' using h
+  use (M s' hs).map f.toHom
+  have img_match := Subgraph.IsMatching.map (f.toHom) (f.injective) (hM s' hs)
+  refine ⟨img_match, ?_⟩
+  rw[IsMatching.support_eq_verts img_match]
+  simp
+  rw[← IsMatching.support_eq_verts (hM s' hs),
+     hM', Set.image_diff (f.injective), Set.image_singleton, hs']
+
+
+lemma factor_area_odd (h : G.IsFactorCriticalArea S) : Odd S.ncard := by
+  sorry
+
+
+
+
 abbrev ι : G.induce S ↪g G := Embedding.induce S
 
 def comp_ι (S) (C : (G.induce S).ConnectedComponent) : G.ConnectedComponent :=
@@ -364,14 +442,112 @@ lemma edmond_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmond
     contradiction
   · exact h'
 
+def fromFunction (f : S → V) (hf : ∀ (s : S), G.Adj s (f s)) : G.Subgraph where
+  verts := S ∪ (Set.range f)
+  Adj x y := ∃ (s : S), s(x,y) = s(s.val, f s)
+  adj_sub := by
+    rintro x y ⟨s, hs⟩
+    rw[← G.mem_edgeSet, hs, G.mem_edgeSet]
+    exact (hf s)
+  edge_vert := by
+    rintro x y ⟨⟨s, hs⟩, h⟩
+    rcases Sym2.eq_iff.1 h with ⟨rfl, _⟩ | ⟨rfl, _⟩
+    · left
+      assumption
+    · right
+      use ⟨s, hs⟩
 
-lemma one_factor_iff (G : SimpleGraph V) : (∃ (B : Set V),
-  (∀ X ⊆ B, {C : (G.induce Bᶜ).ConnectedComponent | ∃v ∈ C, ∃x ∈ X, G.Adj x v.val}.ncard ≥ X.ncard) ∧
-  (∀ (C : (G.induce Bᶜ).ConnectedComponent), C.toSimpleGraph.IsFactorCritical) ∧
-  (B.ncard = (Set.univ : Set (G.induce Bᶜ).ConnectedComponent).ncard)) ↔ (∃ M : G.Subgraph, M.IsPerfectMatching) := by
+
+
+open Subgraph
+
+open Fintype in
+open Classical in
+lemma one_factor_iff' (h₀ : G.IsMatchableToComps S)
+  (h₁ : ∀ (C : (G.induce Sᶜ).ConnectedComponent), (G.induce Sᶜ).IsFactorCriticalArea C.supp) :
+  card S = card (G.induce Sᶜ).ConnectedComponent ↔ ∃ M : Subgraph G, M.IsPerfectMatching := by
+  obtain ⟨f, finj, hf⟩ := h₀
+  choose c c_mem c_adj using hf
+  choose M hM hM' using fun s ↦ h₁ (f s) (c s) (c_mem s)
+    --fun s ↦ (factor_critcal_image (h₁ <| f s) G.ι) (c s) (Set.mem_image_of_mem G.ι (c_mem s))
+
   constructor
-  rintro ⟨B, ⟨h₀, h₁, h₂⟩⟩
-  sorry
+  · intro card_eq
+
+    have fbij := (Fintype.bijective_iff_injective_and_card f).2 ⟨finj, card_eq⟩
+
+    have hd: Pairwise fun s s' ↦ Disjoint (M s).support (M s').support := by
+      intro s s' h
+      rw[hM', hM']
+      exact Disjoint.mono (by simp) (by simp) <|
+            ((G.induce Sᶜ).pairwise_disjoint_supp_connectedComponent (finj.ne h))
+
+
+    have cinj: Function.Injective c := by
+      intro s s' h
+      by_contra! ts
+      have cinfs': c s ∈ (f s') := by rw[h]; exact c_mem s'
+      exact ((G.induce Sᶜ).pairwise_disjoint_supp_connectedComponent (finj.ne ts)).le_bot <|
+            ⟨c_mem s, cinfs'⟩
+
+    have dj: Disjoint S Sᶜ := by rw[Set.disjoint_compl_right_iff_subset]
+
+
+    obtain ⟨P, ⟨hP, hP'⟩⟩ := exists_of_disjoint_sets_of_injective c dj c_adj cinj
+    let cM' := ⨆ s : S, (M s)
+    let hcM' := Subgraph.IsMatching.iSup hM hd
+    let hcM := hcM'.map (G.ι.toHom) (G.ι.injective)
+    let cM := cM'.map G.ι.toHom
+
+    have P_D_cM: Disjoint P.support cM.support := by
+      rw[IsMatching.support_eq_verts, IsMatching.support_eq_verts, Set.disjoint_iff]
+      · rintro x ⟨hl , ⟨⟨v, vc⟩, ⟨hC, hv⟩⟩⟩
+        rcases hP ▸ hl with (hs | ⟨⟨y, yc⟩, ⟨⟨w, h⟩, hw⟩ ⟩)
+        · rw[← hv] at hs
+          exact vc hs
+        rw[verts_iSup] at hC
+        rcases hC with ⟨C, ⟨⟨s, hs'⟩, vC⟩⟩
+        dsimp at hs'
+        rw[← IsMatching.support_eq_verts, hM' s] at hs'
+        · rw[← hs'] at vC
+          have: G.ι.toHom ⟨v, vc⟩ = (⟨v, vc⟩ : ↑(Sᶜ)) := rfl
+          rw[← hw, this, Subtype.val_inj] at hv
+          rw[hv, ← h] at vC
+          rcases vC with ⟨h1, h2⟩
+          by_cases ws : w = s
+          · rw[ws] at h2
+            exact h2 rfl
+          · exact ((G.induce Sᶜ).pairwise_disjoint_supp_connectedComponent (finj.ne ws)).le_bot <|
+                  ⟨c_mem w, h1⟩
+        exact hM s
+      · exact hcM
+      exact hP'
+
+    let pMatch := P ⊔ cM
+
+    have: pMatch.IsSpanning := by
+      sorry
+
+    refine ⟨pMatch, ⟨IsMatching.sup hP' hcM P_D_cM, this⟩⟩
+
+  intro h
+  let nonviolator := tutte.1 h S
+
+  have Sleq: S.ncard ≥ (G.induce Sᶜ).oddComponents.ncard := by -- ≤ wg. tutte
+    by_contra!
+    apply nonviolator
+    sorry
+
+  have Sgeq: S.ncard ≤ (G.induce Sᶜ).oddComponents.ncard := by -- ≥ wg. h₀
+    sorry
+
+  have oddeq: card (induce Sᶜ G).ConnectedComponent = (induce Sᶜ G).oddComponents.ncard := by
+    sorry
+
+  have Seq: card S = S.ncard := by rw[← Nat.card_coe_set_eq, Fintype.card_eq_nat_card]
+
+  rw[Seq, oddeq, le_antisymm Sgeq Sleq]
+
 
 
 theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
