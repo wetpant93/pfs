@@ -14,17 +14,13 @@ variable {C : G.ConnectedComponent}
 
 namespace SimpleGraph
 
-
-#check G \ H
-
-
 def IsClosed (G : SimpleGraph V) (S : Set V) : Prop :=
     ¬∃ x ∈ S, ∃y ∈ Sᶜ, G.Adj x y
 
 def IsFactorCritical : Prop :=
     ∀ v : V, ∃ M : G.Subgraph, M.IsMatching ∧ M.support = {v}ᶜ
 
-
+variable [Nonempty S] in
 def IsFactorCriticalArea (G : SimpleGraph V) (S : Set V) : Prop :=
   ∀ v ∈ S, ∃ M : G.Subgraph, M.IsMatching ∧ M.support = S \ {v}
 
@@ -95,10 +91,16 @@ lemma factor_critcal_image (h : G.IsFactorCriticalArea S) (f : G ↪g G') :
   rw[← IsMatching.support_eq_verts (hM s' hs),
      hM', Set.image_diff (f.injective), Set.image_singleton, hs']
 
-
-lemma factor_area_odd (h : G.IsFactorCriticalArea S) : Odd S.ncard := by
-  sorry
-
+open Subgraph in
+variable [Fintype V] in
+lemma factor_area_odd (h : G.IsFactorCriticalArea S) (hn : S.Nonempty) : Odd S.ncard := by
+  classical
+  obtain ⟨v, vs⟩ := hn
+  rcases (h v vs) with ⟨M, hM⟩
+  let even := IsMatching.even_card hM.1
+  rw[← IsMatching.support_eq_verts hM.1, hM.2, ← Set.ncard_eq_toFinset_card'] at even
+  rw[← Set.ncard_diff_singleton_add_one vs]
+  exact Even.add_one even
 
 
 
@@ -442,25 +444,7 @@ lemma edmond_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmond
     contradiction
   · exact h'
 
-def fromFunction (f : S → V) (hf : ∀ (s : S), G.Adj s (f s)) : G.Subgraph where
-  verts := S ∪ (Set.range f)
-  Adj x y := ∃ (s : S), s(x,y) = s(s.val, f s)
-  adj_sub := by
-    rintro x y ⟨s, hs⟩
-    rw[← G.mem_edgeSet, hs, G.mem_edgeSet]
-    exact (hf s)
-  edge_vert := by
-    rintro x y ⟨⟨s, hs⟩, h⟩
-    rcases Sym2.eq_iff.1 h with ⟨rfl, _⟩ | ⟨rfl, _⟩
-    · left
-      assumption
-    · right
-      use ⟨s, hs⟩
-
-
-
-open Subgraph
-
+open Subgraph in
 open Fintype in
 open Classical in
 lemma one_factor_iff' (h₀ : G.IsMatchableToComps S)
@@ -469,8 +453,6 @@ lemma one_factor_iff' (h₀ : G.IsMatchableToComps S)
   obtain ⟨f, finj, hf⟩ := h₀
   choose c c_mem c_adj using hf
   choose M hM hM' using fun s ↦ h₁ (f s) (c s) (c_mem s)
-    --fun s ↦ (factor_critcal_image (h₁ <| f s) G.ι) (c s) (Set.mem_image_of_mem G.ι (c_mem s))
-
   constructor
   · intro card_eq
 
@@ -526,25 +508,56 @@ lemma one_factor_iff' (h₀ : G.IsMatchableToComps S)
     let pMatch := P ⊔ cM
 
     have: pMatch.IsSpanning := by
-      sorry
+      intro v
+      rw[verts_sup]
+      by_cases hv: v ∈ S
+      · left
+        rw[hP]
+        exact Or.inl hv
+
+      · have: ⟨v, hv⟩ ∈ (Set.univ : Set ↑(Sᶜ)) := by trivial
+        rw[← (G.induce Sᶜ).iUnion_connectedComponentSupp] at this
+        rcases this with ⟨Csupp, ⟨⟨C, rfl⟩, vC⟩⟩
+        obtain ⟨s, hs⟩ := fbij.existsUnique C
+        by_cases hv' : ⟨v, hv⟩ = (c s)
+        · left
+          rw[hP]
+          right
+          refine ⟨c s, ⟨Set.mem_range_self s, Subtype.val_inj.2 hv'.symm⟩⟩
+        · right
+          rw[map_verts, verts_iSup]
+          refine ⟨⟨v, hv⟩, ⟨?_, rfl⟩⟩
+          rw[Set.mem_iUnion]
+          use s
+          rw[← IsMatching.support_eq_verts <| hM s, hM' s, hs.1]
+          exact ⟨vC, hv'⟩
 
     refine ⟨pMatch, ⟨IsMatching.sup hP' hcM P_D_cM, this⟩⟩
 
   intro h
   let nonviolator := tutte.1 h S
 
+  have iso: G.induce Sᶜ ≃g ((⊤ : G.Subgraph).deleteVerts S).coe := by
+    rw[deleteVerts, Subgraph.verts_top, ← Set.compl_eq_univ_diff, G.induce_eq_coe_induce_top Sᶜ]
+
   have Sleq: S.ncard ≥ (G.induce Sᶜ).oddComponents.ncard := by -- ≤ wg. tutte
     by_contra!
     apply nonviolator
-    sorry
-
-  have Sgeq: S.ncard ≤ (G.induce Sᶜ).oddComponents.ncard := by -- ≥ wg. h₀
-    sorry
+    rwa[IsTutteViolator, ← iso_odd_card_eq iso]
 
   have oddeq: card (induce Sᶜ G).ConnectedComponent = (induce Sᶜ G).oddComponents.ncard := by
-    sorry
+    rw[Fintype.card_eq_nat_card, ← Nat.card_congr (Equiv.Set.univ _)]
+    congr
+    symm
+    rw[Set.eq_univ_iff_forall]
+    intro C
+    exact factor_area_odd (h₁ C) C.nonempty_supp
 
   have Seq: card S = S.ncard := by rw[← Nat.card_coe_set_eq, Fintype.card_eq_nat_card]
+
+  have Sgeq: S.ncard ≤ (G.induce Sᶜ).oddComponents.ncard := by -- ≥ wg. h₀
+    rw[← Seq, ← oddeq]
+    exact Fintype.card_le_of_injective f finj
 
   rw[Seq, oddeq, le_antisymm Sgeq Sleq]
 
