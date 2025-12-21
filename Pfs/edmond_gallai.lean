@@ -20,6 +20,8 @@ def IsClosed (G : SimpleGraph V) (S : Set V) : Prop :=
 def IsFactorCritical : Prop :=
     ∀ v : V, ∃ M : G.Subgraph, M.IsMatching ∧ M.support = {v}ᶜ
 
+
+
 variable [Nonempty S] in
 def IsFactorCriticalArea (G : SimpleGraph V) (S : Set V) : Prop :=
   ∀ v ∈ S, ∃ M : G.Subgraph, M.IsMatching ∧ M.support = S \ {v}
@@ -28,6 +30,8 @@ def IsFactorCriticalArea (G : SimpleGraph V) (S : Set V) : Prop :=
 def IsMatchableToComps (S : Set V) : Prop :=
   ∃ (f : S → (G.induce Sᶜ).ConnectedComponent),
   Function.Injective f ∧ (∀ s : S, ∃ y ∈ (f s), G.Adj ↑s ↑y)
+
+
 
 
 
@@ -444,10 +448,11 @@ lemma edmond_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmond
     contradiction
   · exact h'
 
-open Subgraph in
-open Fintype in
+open Subgraph
+open Fintype
+
 open Classical in
-lemma one_factor_iff' (h₀ : G.IsMatchableToComps S)
+lemma one_factor_iff (h₀ : G.IsMatchableToComps S)
   (h₁ : ∀ (C : (G.induce Sᶜ).ConnectedComponent), (G.induce Sᶜ).IsFactorCriticalArea C.supp) :
   card S = card (G.induce Sᶜ).ConnectedComponent ↔ ∃ M : Subgraph G, M.IsPerfectMatching := by
   obtain ⟨f, finj, hf⟩ := h₀
@@ -564,17 +569,20 @@ lemma one_factor_iff' (h₀ : G.IsMatchableToComps S)
 
 
 theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
-  (∀ X ⊆ B, {C : (G.induce Bᶜ).ConnectedComponent | ∃v ∈ C, ∃x ∈ X, G.Adj x v.val}.ncard ≥ X.ncard) ∧
-  (∀ (C : (G.induce Bᶜ).ConnectedComponent), C.toSimpleGraph.IsFactorCritical) := by
+  (G.IsMatchableToComps B) ∧
+  (∀ (C : (G.induce Bᶜ).ConnectedComponent), (G.induce Bᶜ).IsFactorCriticalArea C.supp) := by
   classical
   generalize hn : Fintype.card V = n
 
-  induction' n using Nat.strong_induction_on with n ih
+  induction' n using Nat.strong_induction_on with n ih generalizing V
 
   rcases n with _ | n
   · use ∅
     have hempty := Fintype.card_eq_zero_iff.1 hn
-    constructor <;> simp_all [IsFactorCritical]
+    constructor <;> simp_all [IsFactorCriticalArea, IsMatchableToComps]
+    use fun ⟨_, h⟩ ↦ False.elim h
+    intro ⟨_,hx⟩ _ _
+    contradiction
 
   · use edmond_gallai_set G
     set B := edmond_gallai_set G
@@ -718,6 +726,44 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
           _ = d G T := rfl
 
       linarith[edmond_gallai_is_maximal_card G tutte_eq]
+
+    have: ∀ C : (G.induce Bᶜ).ConnectedComponent, (G.induce Bᶜ).IsFactorCriticalArea C := by
+      intro C
+      rw[IsFactorCriticalArea]
+      by_contra! nCrit
+      rcases nCrit with ⟨c, hc⟩
+      let C' := Subtype.val '' (C.supp \ {c})
+      have noP: ¬ ∃ M : (G.induce C').Subgraph, M.IsPerfectMatching := by
+        intro h
+        rcases h with ⟨M, ⟨hM, hM'⟩⟩
+        have ts: Set.MapsTo id C' Bᶜ := by
+          rintro x ⟨⟨y, hy⟩, ⟨_, rfl⟩⟩
+          exact hy
+
+        let h' := hM.map (G.induceHom Hom.id ts) (G.induceHom_injective Hom.id ts (by simp))
+        let M' := M.map (G.induceHom Hom.id ts)
+
+        have: M'.support = C.supp \ {c} := by
+          rw[IsMatching.support_eq_verts h', map_verts, isSpanning_iff.1 hM']
+          ext x; constructor
+          rintro ⟨⟨_, hy⟩, ⟨_, rfl⟩⟩
+          obtain ⟨_ , ⟨h, rfl⟩⟩ := hy
+          exact h
+          rintro h
+          have: ↑x ∈ C' := by
+            rwa[Function.Injective.mem_set_image Subtype.val_injective]
+          use ⟨x, this⟩
+          refine ⟨by simp, rfl⟩
+
+        exact hc.2 M' h' this
+
+      have : card C' < n + 1 := by
+        rw[← hn, Fintype.card_subtype, Finset.card_lt_iff_ne_univ]
+        simp
+        use c
+        simp[C']
+
+      obtain ⟨S, hS, hS'⟩ := ih (card C') this (G.induce C') rfl
 
 
 
