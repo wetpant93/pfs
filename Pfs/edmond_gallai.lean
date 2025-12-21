@@ -420,7 +420,6 @@ def induce_induce_iso (G : SimpleGraph V) (C : Set {x // x ∈ S}) :
 
   map_rel_iff' := by rfl
 
-
 lemma odd_comp_eq_zero_induce_even_comp
   (C : G.ConnectedComponent) (h : Even C.supp.ncard) :
   (G.induce C.supp).oddComponents.ncard = 0 := by
@@ -430,6 +429,23 @@ lemma odd_comp_eq_zero_induce_even_comp
   rwa[← closed_comp_ι_supp_card (comp_is_closed C),
         comp_ι_mk,
         (ConnectedComponent.mem_supp_iff C (G.ι ⟨x, xc⟩)).1 xc]
+
+omit [Fintype V]
+lemma odd_comp_eq_one_induce_odd_comp
+  (C : G.ConnectedComponent) (h : Odd C.supp.ncard) :
+  (G.induce C.supp).oddComponents.ncard = 1 := by
+  rw[Set.ncard_eq_one]
+  use comp_ι_inv C (by rfl)
+  ext x; constructor
+  · rintro hx
+    apply closed_comp_ι_inj (comp_is_closed C)
+    obtain ⟨⟨_, x'⟩, rfl⟩ := x.nonempty_supp
+    rw[comp_ι_inv_comp_ι, comp_ι_mk, ← ConnectedComponent.mem_supp_iff]
+    exact x'
+  · intro rfl
+    simp
+    rwa[← closed_comp_ι_supp_card (comp_is_closed C), comp_ι_inv_comp_ι]
+
 
 
 noncomputable
@@ -843,8 +859,28 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
         simp
 
       let t := helper₁ this (helper hS hS' noP)
+      let T := ↑S ∪ B ∪ {↑c}
+      let C_pb : Set ↑Tᶜ := (Subtype.val ⁻¹' C.supp)
+      let G'  := (G.induce Tᶜ).induce C_pb
+      let Gc' := (G.induce Tᶜ).induce C_pbᶜ
 
 
+      have: Subtype.val '' Sᶜ = Subtype.val '' C_pb := by
+        simp only [C_pb, T, C']
+        ext x; constructor
+        intro ⟨⟨y, ⟨z, hz⟩⟩, hx⟩
+        sorry
+
+
+      let ψ := G.induce_induce_iso C_pb
+      let φ := G.induce_induce_iso C_pbᶜ
+
+      let ψ₀ := G.induce_induce_iso Sᶜ -- ./
+
+      have C_pb_closed: (G.induce Tᶜ).IsClosed C_pb := sorry
+
+
+      let := odd_comp_eq C_pb_closed
 
 
 
