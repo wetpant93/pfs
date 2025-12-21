@@ -31,7 +31,13 @@ def IsMatchableToComps (S : Set V) : Prop :=
   ∃ (f : S → (G.induce Sᶜ).ConnectedComponent),
   Function.Injective f ∧ (∀ s : S, ∃ y ∈ (f s), G.Adj ↑s ↑y)
 
-
+variable [Fintype V] in
+open Classical in
+open Fintype in
+lemma matchable_card_le (h : G.IsMatchableToComps S) :
+  card S ≤ card (G.induce Sᶜ).ConnectedComponent := by
+  obtain ⟨f, finj, _⟩ := h
+  exact Fintype.card_le_of_injective f finj
 
 
 
@@ -105,6 +111,23 @@ lemma factor_area_odd (h : G.IsFactorCriticalArea S) (hn : S.Nonempty) : Odd S.n
   rw[← IsMatching.support_eq_verts hM.1, hM.2, ← Set.ncard_eq_toFinset_card'] at even
   rw[← Set.ncard_diff_singleton_add_one vs]
   exact Even.add_one even
+
+
+
+variable [Fintype V] in
+open Classical in
+open Fintype in
+lemma all_odd_factor_area :
+  (∀ C : G.ConnectedComponent, G.IsFactorCriticalArea C.supp) →
+  card G.ConnectedComponent = G.oddComponents.ncard := by
+  intro h
+  rw[Fintype.card_eq_nat_card, ← Nat.card_congr (Equiv.Set.univ _)]
+  congr
+  symm
+  rw[Set.eq_univ_iff_forall]
+  intro C
+  exact factor_area_odd (h C) C.nonempty_supp
+
 
 
 
@@ -448,6 +471,8 @@ lemma edmond_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmond
     contradiction
   · exact h'
 
+
+
 open Subgraph
 open Fintype
 
@@ -566,12 +591,57 @@ lemma one_factor_iff (h₀ : G.IsMatchableToComps S)
 
   rw[Seq, oddeq, le_antisymm Sgeq Sleq]
 
+open Classical in
+lemma helper (h₀ : G.IsMatchableToComps S)
+  (h₁ : ∀ (C : (G.induce Sᶜ).ConnectedComponent), (G.induce Sᶜ).IsFactorCriticalArea C.supp)
+  (h₂ : ¬∃ M : G.Subgraph, M.IsPerfectMatching) : S.ncard < (G.induce Sᶜ).oddComponents.ncard := by
+  rw[← one_factor_iff h₀ h₁] at h₂
+  rcases ne_iff_lt_or_gt.1 h₂ with h | h
+  · have: card S = S.ncard := by
+      rw[← Nat.card_coe_set_eq, Fintype.card_eq_nat_card]
+    rw[← this]
+    have: card (G.induce Sᶜ).ConnectedComponent = (G.induce Sᶜ).oddComponents.ncard := by
+        rw[Fintype.card_eq_nat_card, ← Nat.card_congr (Equiv.Set.univ _)]
+        congr
+        symm
+        rw[Set.eq_univ_iff_forall]
+        intro C
+        exact factor_area_odd (h₁ C) C.nonempty_supp
+
+    rw[← this]
+    exact h
+  · obtain ⟨f, finj, _⟩ := h₀
+    linarith[Fintype.card_le_of_injective f finj]
 
 
+lemma helper₁ (h₀ : Even (Nat.card V)) (h₁ : S.ncard < (G.induce Sᶜ).oddComponents.ncard) :
+  (G.induce Sᶜ).oddComponents.ncard - S.ncard ≥ 2 := by
+
+  by_cases hS : Odd (S.ncard)
+  · have: Odd (Nat.card ↑Sᶜ) := by
+      rw[Nat.card_coe_set_eq, Set.odd_ncard_compl_iff]
+      assumption'
+
+    rcases (G.induce Sᶜ).odd_ncard_oddComponents.2 this with ⟨n₀, hn₀⟩
+    rcases hS with ⟨n₁, hn₁⟩
+    omega
+  · have: ¬ Odd (Nat.card ↑Sᶜ) := by
+      rw[Nat.not_odd_iff_even] at *
+      rw[Nat.card_coe_set_eq, Set.even_ncard_compl_iff]
+      assumption'
+
+    rw[← (G.induce Sᶜ).odd_ncard_oddComponents] at this
+    rcases Nat.not_odd_iff_even.1 this with ⟨n₀, hn₀⟩
+    rcases Nat.not_odd_iff_even.1 hS with ⟨n₁, hn₁⟩
+    omega
+
+
+
+open Classical in
 theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
   (G.IsMatchableToComps B) ∧
   (∀ (C : (G.induce Bᶜ).ConnectedComponent), (G.induce Bᶜ).IsFactorCriticalArea C.supp) := by
-  classical
+
   generalize hn : Fintype.card V = n
 
   induction' n using Nat.strong_induction_on with n ih generalizing V
@@ -727,7 +797,7 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
 
       linarith[edmond_gallai_is_maximal_card G tutte_eq]
 
-    have: ∀ C : (G.induce Bᶜ).ConnectedComponent, (G.induce Bᶜ).IsFactorCriticalArea C := by
+    have: ∀ C : (G.induce Bᶜ).ConnectedComponent, (G.induce Bᶜ).IsFactorCriticalArea C.supp := by
       intro C
       rw[IsFactorCriticalArea]
       by_contra! nCrit
@@ -763,7 +833,17 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
         use c
         simp[C']
 
+
       obtain ⟨S, hS, hS'⟩ := ih (card C') this (G.induce C') rfl
+      have: Even (Nat.card ↑C') := by
+        rw[Nat.card_coe_set_eq]
+        rw[Set.ncard_image_of_injective _ Subtype.val_injective, Set.ncard_diff_singleton_of_mem hc.1]
+        rcases all_odd C with ⟨n , k⟩
+        rw[k]
+        simp
+
+      let t := helper₁ this (helper hS hS' noP)
+
 
 
 
