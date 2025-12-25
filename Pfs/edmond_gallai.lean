@@ -579,8 +579,20 @@ lemma edmond_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmond
 
 lemma odd_comp_ineq (Cs : Set G.ConnectedComponent) :
   Cs.ncard ≥ (G.induce (⋃ c ∈ Cs, c.supp)).oddComponents.ncard := by
-  sorry
+  set B := (⋃ c ∈ Cs, c.supp)
+  have: G.comp_ι B  '' (G.induce B).oddComponents ⊆ Cs := by
+    intro x hx
+    obtain ⟨y, ⟨hy, rfl⟩⟩ := hx
+    obtain ⟨y', rfl⟩ := y.nonempty_supp
+    rcases y' with ⟨y'', hy'⟩
+    simp[B] at hy'
+    rw[comp_ι_mk]
+    exact hy'
+  let comp_closed := G.biunion_closed_closed Cs
+                     (fun c ↦ c.supp) (fun c _ ↦ comp_is_closed c)
 
+  rw[← Set.ncard_image_of_injective _ (closed_comp_ι_inj comp_closed)]
+  exact Set.ncard_le_ncard this
 
 -- (G.induce Sᶜ).oddComponents.ncard - S.ncard
 -- (G.induce (S\T)ᶜ).oddComponents.ncard - (S.ncard - T.ncard)
