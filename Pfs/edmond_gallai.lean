@@ -4,11 +4,13 @@ import Mathlib.Combinatorics.SimpleGraph.Subgraph
 import Mathlib.Combinatorics.SimpleGraph.Matching
 import Mathlib.Combinatorics.SimpleGraph.Maps
 import Mathlib.Combinatorics.SimpleGraph.Tutte
+import Mathlib.Combinatorics.Hall.Basic
+
 
 variable {V V' : Type*}
 variable {G H : SimpleGraph V}
 variable {G' H' : SimpleGraph V'}
-variable {S B : Set V}
+variable {S B T : Set V}
 variable {S' : Set V'}
 variable {C : G.ConnectedComponent}
 
@@ -39,6 +41,63 @@ lemma matchable_card_le (h : G.IsMatchableToComps S) :
   card S ≤ card (G.induce Sᶜ).ConnectedComponent := by
   obtain ⟨f, finj, _⟩ := h
   exact Fintype.card_le_of_injective f finj
+
+variable [Fintype V] in
+open Classical in
+noncomputable
+def compNeighbors (s : S) : Finset (G.induce Sᶜ).ConnectedComponent :=
+  {C : (G.induce Sᶜ).ConnectedComponent | ∃ y ∈ C.supp, G.Adj s y}
+
+def IsMatchableToComp (s : S) (C : (G.induce Sᶜ).ConnectedComponent) : Prop :=
+  ∃ y ∈ C.supp, G.Adj s y
+
+
+lemma union_closed_closed (h₀ : G.IsClosed S) (h₁ : G.IsClosed T) : G.IsClosed (S ∪ T) := by
+  rintro ⟨x, (hx | hx), y, hy, xy⟩
+  · rw[Set.mem_compl_iff, Set.mem_union] at hy
+    push_neg at hy
+    exact h₀ ⟨x, hx, y, hy.1, xy⟩
+  · rw[Set.mem_compl_iff, Set.mem_union] at hy
+    push_neg at hy
+    exact h₁ ⟨x, hx, y, hy.2, xy⟩
+
+lemma biunion_closed_closed {α : Type*} (S : Set α) (f : α → Set V)
+ (hS : ∀ s ∈ S, G.IsClosed (f s)) :
+  G.IsClosed (⋃ s ∈ S, (f s)) := by
+  rintro ⟨x, hx, y, hy, xy⟩
+  simp at hx hy
+  obtain ⟨s, hs⟩ := hx
+  exact (hS s hs.1) ⟨x, hs.2, y, hy s hs.1, xy⟩
+
+#check Set.iUnion
+
+lemma iunion_closed_closed {ι : Type*} (s : ι → Set V) (hS : (i : ι) → G.IsClosed (s i))
+  : G.IsClosed (⋃ (i : ι), s i) := by
+  rintro ⟨x, hx , y, hy, xy⟩
+  rw[Set.compl_iUnion, Set.mem_iInter] at hy
+  rcases Set.mem_iUnion.1 hx with ⟨w, hw⟩
+  exact (hS w) ⟨x, hw, y, hy w, xy⟩
+
+variable [Fintype V] in
+open Classical in
+open Fintype in
+lemma not_matchable_exists_set (h : ¬ G.IsMatchableToComps S) :
+  ∃ (A : Finset S),
+     A.card > Finset.card {C | ∃ s ∈ A, G.IsMatchableToComp s C} := by
+     contrapose! h
+     exact (all_card_le_filter_rel_iff_exists_injective _).1 h
+
+-- variable [Fintype V] in
+-- open Classical in
+-- open Fintype in
+-- lemma idk' (T : Finset S) :
+--   T.biUnion G.compNeighbors =
+--   ({C | ∃ s ∈ T, G.IsMatchableToComp s C} : Finset (G.induce Sᶜ).ConnectedComponent) := by
+--   ext C; simp[IsMatchableToComp, compNeighbors]
+
+
+
+
 
 
 
@@ -315,6 +374,10 @@ lemma pullback_closed_is_closed (B : Set V) (h₁ : G.IsClosed S) :
 
 
 
+
+
+
+
 #check (Subtype.val ⁻¹' B : Set ↑S)
 
 lemma is_closed_induce_mono {B : Set {x // x ∈ S}} {T : Set V}
@@ -325,6 +388,16 @@ lemma is_closed_induce_mono {B : Set {x // x ∈ S}} {T : Set V}
   rcases hx with ⟨x', hx'⟩
   exact hc ⟨⟨x, hs xt⟩, hx', ⟨y, hs yt⟩, hy (hs yt), xy⟩
 
+lemma is_closed_induced_something {B : Set {x // x ∈ S}}
+  (hc : (G.induce S).IsClosed B) (he : ¬(∃ x ∈ T \ S, ∃ y ∈ B, G.Adj x y)) :
+  (G.induce T).IsClosed (Subtype.val ⁻¹' (↑B)) := by
+  rintro ⟨⟨x, xt⟩, hx, ⟨y, yt⟩, hy, xy⟩
+  simp at hx hy
+  rcases hx with ⟨x', hx'⟩
+  by_cases hy': y ∈ S
+  · exact hc ⟨⟨x, x'⟩, hx', ⟨y, hy'⟩, hy hy', xy⟩
+  · exact he ⟨y, ⟨yt, hy'⟩, ⟨x, x'⟩, hx', xy.symm⟩
+
 lemma iso_closed_is_closed (φ : G ≃g G') (h : G.IsClosed S) : G'.IsClosed (φ '' S) := by
   rintro ⟨x', hx, y', hy, x'y'⟩
   simp at hy
@@ -334,6 +407,70 @@ lemma iso_closed_is_closed (φ : G ≃g G') (h : G.IsClosed S) : G'.IsClosed (φ
   · exact hy (φ.symm y') h' imy
   rw[← imx, ← imy] at x'y'
   exact h ⟨x, xs, φ.symm y', h', (Iso.map_adj_iff φ).1 x'y'⟩
+
+
+
+variable [Fintype V] in
+open Classical in
+open Fintype in
+lemma temp (S' : Finset S) (h : S'.card > (S'.biUnion G.compNeighbors).card) :
+  ∃ T ⊆ S,
+  T = SetLike.coe S' ∧
+  (G.induce Sᶜ).oddComponents.ncard < (G.induce (S\T)ᶜ).oddComponents.ncard - (S.ncard - T.ncard) := by
+  let T : Set V := Subtype.val '' SetLike.coe S'
+  have TssS: T ⊆ S := fun _ ⟨⟨_, h⟩, ⟨_ , rfl⟩⟩ ↦ h
+  have TeqS': T = SetLike.coe S' := rfl
+  refine ⟨T,⟨TssS, rfl, ?_⟩⟩
+
+  let I := SetLike.coe (S'.biUnion G.compNeighbors)
+
+  let comps := ⋃ c ∈ I, c.supp
+
+  let f := (fun c : (G.induce Sᶜ).ConnectedComponent ↦ c.supp)
+
+  let comps_closed := (G.induce Sᶜ).biunion_closed_closed I f (fun c _ ↦ comp_is_closed c)
+
+  let compsST : Set ↑(S \ T)ᶜ := Subtype.val ⁻¹' ↑compsᶜ
+
+  have: Subtype.val '' compsST = Subtype.val '' (compsᶜ) := by
+     simp[compsST]
+     have hs: Sᶜ ⊆ (S\T)ᶜ := by
+        rw[Set.compl_diff]
+        exact Set.subset_union_right
+     have: (S \ T)ᶜ \ S = Sᶜ := by
+      rw[Set.diff_eq, Set.inter_eq_self_of_subset_right hs]
+     rw[this, Set.inter_eq_self_of_subset_right]
+     trans Sᶜ; simp; exact hs
+
+  have he: ¬(∃ x ∈ T, ∃ y ∈ compsᶜ, G.Adj x y) := by
+    rintro ⟨x, xt, y, hy, xy⟩
+    simp only [comps, Set.mem_compl_iff, Set.mem_iUnion,
+               exists_prop, I, SetLike.mem_coe,
+               Finset.mem_biUnion, compNeighbors, Finset.mem_filter,
+               Finset.mem_univ, true_and] at hy
+    apply hy
+    use (G.induce Sᶜ).connectedComponentMk y
+    refine ⟨?_, rfl⟩
+    use ⟨x, TssS xt⟩
+    refine ⟨?_, ?_⟩
+    · obtain ⟨a, ⟨ha, rfl⟩⟩ := TeqS' ▸ xt
+      exact ha
+    refine ⟨y, ⟨rfl, xy⟩⟩
+
+  have compsST_closed : (G.induce (S\T)ᶜ).IsClosed compsST := by
+    have: (S \ T)ᶜ \ Sᶜ = T := by
+      rw[Set.diff_eq, Set.diff_eq, Set.compl_inter, Set.union_inter_distrib_right]
+      simpa
+    rw[← this] at he
+    exact is_closed_induced_something (cmpl_of_closed_closed comps_closed) he
+
+  have: (G.induce (S\T)ᶜ).induce compsSTᶜ ≃g (G.induce Sᶜ).induce compsᶜ := sorry
+
+  have: (G.induce Tᶜ).oddComponents.ncard ≥ ((G.induce Sᶜ).induce compsᶜ).oddComponents.ncard :=
+    sorry
+
+
+
 
 
 lemma iso_comp_card_eq (φ : G ≃g G') :
@@ -960,7 +1097,9 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
 
       linarith[G.edmond_gallai_is_maximal_card tutte_eq]
     refine ⟨?_, this⟩
-
+    by_contra! h
+    rcases not_matchable_exists_set h with ⟨A, hA⟩
+    obtain ⟨a, _ , b⟩ := temp hA
 
 
 
