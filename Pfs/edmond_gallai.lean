@@ -87,13 +87,13 @@ lemma not_matchable_exists_set (h : ¬ G.IsMatchableToComps S) :
      contrapose! h
      exact (all_card_le_filter_rel_iff_exists_injective _).1 h
 
--- variable [Fintype V] in
--- open Classical in
--- open Fintype in
--- lemma idk' (T : Finset S) :
---   T.biUnion G.compNeighbors =
---   ({C | ∃ s ∈ T, G.IsMatchableToComp s C} : Finset (G.induce Sᶜ).ConnectedComponent) := by
---   ext C; simp[IsMatchableToComp, compNeighbors]
+variable [Fintype V] in
+open Classical in
+open Fintype in
+lemma from_set_to_comp_neighbors (T : Finset S) :
+  T.biUnion G.compNeighbors =
+  ({C | ∃ s ∈ T, G.IsMatchableToComp s C} : Finset (G.induce Sᶜ).ConnectedComponent) := by
+  ext C; simp[IsMatchableToComp, compNeighbors]
 
 
 
@@ -410,65 +410,6 @@ lemma iso_closed_is_closed (φ : G ≃g G') (h : G.IsClosed S) : G'.IsClosed (φ
 
 
 
-variable [Fintype V] in
-open Classical in
-open Fintype in
-lemma temp (S' : Finset S) (h : S'.card > (S'.biUnion G.compNeighbors).card) :
-  ∃ T ⊆ S,
-  T = SetLike.coe S' ∧
-  (G.induce Sᶜ).oddComponents.ncard < (G.induce (S\T)ᶜ).oddComponents.ncard - (S.ncard - T.ncard) := by
-  let T : Set V := Subtype.val '' SetLike.coe S'
-  have TssS: T ⊆ S := fun _ ⟨⟨_, h⟩, ⟨_ , rfl⟩⟩ ↦ h
-  have TeqS': T = SetLike.coe S' := rfl
-  refine ⟨T,⟨TssS, rfl, ?_⟩⟩
-
-  let I := SetLike.coe (S'.biUnion G.compNeighbors)
-
-  let comps := ⋃ c ∈ I, c.supp
-
-  let f := (fun c : (G.induce Sᶜ).ConnectedComponent ↦ c.supp)
-
-  let comps_closed := (G.induce Sᶜ).biunion_closed_closed I f (fun c _ ↦ comp_is_closed c)
-
-  let compsST : Set ↑(S \ T)ᶜ := Subtype.val ⁻¹' ↑compsᶜ
-
-  have: Subtype.val '' compsST = Subtype.val '' (compsᶜ) := by
-     simp[compsST]
-     have hs: Sᶜ ⊆ (S\T)ᶜ := by
-        rw[Set.compl_diff]
-        exact Set.subset_union_right
-     have: (S \ T)ᶜ \ S = Sᶜ := by
-      rw[Set.diff_eq, Set.inter_eq_self_of_subset_right hs]
-     rw[this, Set.inter_eq_self_of_subset_right]
-     trans Sᶜ; simp; exact hs
-
-  have he: ¬(∃ x ∈ T, ∃ y ∈ compsᶜ, G.Adj x y) := by
-    rintro ⟨x, xt, y, hy, xy⟩
-    simp only [comps, Set.mem_compl_iff, Set.mem_iUnion,
-               exists_prop, I, SetLike.mem_coe,
-               Finset.mem_biUnion, compNeighbors, Finset.mem_filter,
-               Finset.mem_univ, true_and] at hy
-    apply hy
-    use (G.induce Sᶜ).connectedComponentMk y
-    refine ⟨?_, rfl⟩
-    use ⟨x, TssS xt⟩
-    refine ⟨?_, ?_⟩
-    · obtain ⟨a, ⟨ha, rfl⟩⟩ := TeqS' ▸ xt
-      exact ha
-    refine ⟨y, ⟨rfl, xy⟩⟩
-
-  have compsST_closed : (G.induce (S\T)ᶜ).IsClosed compsST := by
-    have: (S \ T)ᶜ \ Sᶜ = T := by
-      rw[Set.diff_eq, Set.diff_eq, Set.compl_inter, Set.union_inter_distrib_right]
-      simpa
-    rw[← this] at he
-    exact is_closed_induced_something (cmpl_of_closed_closed comps_closed) he
-
-  have: (G.induce (S\T)ᶜ).induce compsSTᶜ ≃g (G.induce Sᶜ).induce compsᶜ := sorry
-
-  have: (G.induce Tᶜ).oddComponents.ncard ≥ ((G.induce Sᶜ).induce compsᶜ).oddComponents.ncard :=
-    sorry
-
 
 
 
@@ -636,6 +577,98 @@ lemma edmond_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmond
     contradiction
   · exact h'
 
+lemma odd_comp_ineq (Cs : Set G.ConnectedComponent) :
+  Cs.ncard ≥ (G.induce (⋃ c ∈ Cs, c.supp)).oddComponents.ncard := by
+  sorry
+
+
+-- (G.induce Sᶜ).oddComponents.ncard - S.ncard
+-- (G.induce (S\T)ᶜ).oddComponents.ncard - (S.ncard - T.ncard)
+-- variable [Fintype V] in
+open Classical in
+open Fintype in
+lemma temp (S' : Finset S) (h : S'.card > (S'.biUnion G.compNeighbors).card) :
+  ∃ T ⊆ S,
+  T = SetLike.coe S' ∧
+  d G S < d G (S \ T) := by
+  let T : Set V := Subtype.val '' SetLike.coe S'
+  have TssS: T ⊆ S := fun _ ⟨⟨_, h⟩, ⟨_ , rfl⟩⟩ ↦ h
+  have TeqS': T = SetLike.coe S' := rfl
+  refine ⟨T,⟨TssS, rfl, ?_⟩⟩
+
+  let I := SetLike.coe (S'.biUnion G.compNeighbors)
+
+  let comps := ⋃ c ∈ I, c.supp
+
+  let f := (fun c : (G.induce Sᶜ).ConnectedComponent ↦ c.supp)
+
+  let comps_closed := (G.induce Sᶜ).biunion_closed_closed I f (fun c _ ↦ comp_is_closed c)
+
+  let compsST : Set ↑(S \ T)ᶜ := Subtype.val ⁻¹' ↑compsᶜ
+
+  have: Subtype.val '' compsST = Subtype.val '' (compsᶜ) := by
+     simp[compsST]
+     have hs: Sᶜ ⊆ (S\T)ᶜ := by
+        rw[Set.compl_diff]
+        exact Set.subset_union_right
+     have: (S \ T)ᶜ \ S = Sᶜ := by
+      rw[Set.diff_eq, Set.inter_eq_self_of_subset_right hs]
+     rw[this, Set.inter_eq_self_of_subset_right]
+     trans Sᶜ
+     · simp
+     · exact hs
+
+  have he: ¬(∃ x ∈ T, ∃ y ∈ compsᶜ, G.Adj x y) := by
+    rintro ⟨x, xt, y, hy, xy⟩
+    simp only [comps, Set.mem_compl_iff, Set.mem_iUnion,
+               exists_prop, I, SetLike.mem_coe,
+               Finset.mem_biUnion, compNeighbors, Finset.mem_filter,
+               Finset.mem_univ, true_and] at hy
+    apply hy
+    use (G.induce Sᶜ).connectedComponentMk y
+    refine ⟨?_, rfl⟩
+    use ⟨x, TssS xt⟩
+    refine ⟨?_, ?_⟩
+    · obtain ⟨a, ⟨ha, rfl⟩⟩ := TeqS' ▸ xt
+      exact ha
+    refine ⟨y, ⟨rfl, xy⟩⟩
+
+  have compsST_closed : (G.induce (S\T)ᶜ).IsClosed compsST := by
+    have: (S \ T)ᶜ \ Sᶜ = T := by
+      rw[Set.diff_eq, Set.diff_eq, Set.compl_inter, Set.union_inter_distrib_right]
+      simpa
+    rw[← this] at he
+    exact is_closed_induced_something (cmpl_of_closed_closed comps_closed) he
+
+  have GsTgeq: (G.induce (S \ T)ᶜ).oddComponents.ncard ≥
+         ((G.induce Sᶜ).induce compsᶜ).oddComponents.ncard := by
+
+    let ψ := (G.induce_induce_iso compsST).symm.comp <|
+             (G.induce_congr this).symm.comp <|
+              G.induce_induce_iso compsᶜ
+    rw[← odd_comp_eq compsST_closed, iso_odd_card_eq ψ]
+    linarith
+
+  have Ilt: I.ncard ≥ ((G.induce Sᶜ).induce comps).oddComponents.ncard :=
+    (G.induce Sᶜ).odd_comp_ineq I
+
+  have Tgt: T.ncard > I.ncard := by
+    rw[Set.ncard_image_of_injective _ Subtype.val_injective]
+    simpa only [I, Set.ncard_coe_finset]
+
+
+  have : ((S \ T).ncard : ℤ) = (S.ncard : ℤ) - (T.ncard : ℤ) := by
+    rw[Set.ncard_diff TssS, Nat.cast_sub (Set.ncard_le_ncard TssS)]
+
+  calc
+    d G (S \ T) = (induce (S \ T)ᶜ G).oddComponents.ncard - (S \ T).ncard := rfl
+    _ ≥ ((G.induce Sᶜ).induce compsᶜ).oddComponents.ncard - (S \ T).ncard := by linarith
+    _  = ((G.induce Sᶜ).induce compsᶜ).oddComponents.ncard - (S.ncard - T.ncard) := by rw[this]
+    _  > ((G.induce Sᶜ).induce compsᶜ).oddComponents.ncard +
+         ((G.induce Sᶜ).induce comps).oddComponents.ncard - S.ncard := by linarith
+    _  = (G.induce Sᶜ).oddComponents.ncard - S.ncard := by linarith[odd_comp_eq comps_closed]
+    _ = d G S := rfl
+
 
 
 open Subgraph
@@ -801,7 +834,7 @@ lemma helper₁ (h₀ : Even (Nat.card V)) (h₁ : S.ncard < (G.induce Sᶜ).odd
     omega
 
 
-set_option maxHeartbeats 400000 in
+set_option maxHeartbeats 400000 in -- horrible needs to be fixed
 open Classical in
 theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
   (G.IsMatchableToComps B) ∧
@@ -900,7 +933,8 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
       let ψ := (G.induce_congr pb_eq.symm).comp (G.induce_induce_iso C_pb)  -- G[Tᶜ][C'] ≃ G[C']
 
       let φ := induce_induce_iso_set_ss' G this
-      let C_pb_closed := pullback_closed_is_closed ((↑) ⁻¹' Tᶜ) (comp_is_closed C) -- π(C) is closed in G[Sᶜ][Tᶜ] ≃g G[Tᶜ]
+      let C_pb_closed := pullback_closed_is_closed ((↑) ⁻¹' Tᶜ) (comp_is_closed C)
+                                        -- π(C) is closed in G[Sᶜ][Tᶜ] ≃g G[Tᶜ]
       let j := iso_closed_is_closed φ C_pb_closed
 
 
@@ -909,7 +943,8 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
         rwa[this] at j
 
 
-      have: GindC.oddComponents.ncard + GindCc.oddComponents.ncard = (G.induce Tᶜ).oddComponents.ncard:= by
+      have: GindC.oddComponents.ncard + GindCc.oddComponents.ncard =
+            (G.induce Tᶜ).oddComponents.ncard := by
         exact odd_comp_eq this
 
       have GCc_odd_eq_GBc_odd: GindCc.oddComponents.ncard = (G.induce Bᶜ).oddComponents.ncard := by
@@ -920,14 +955,14 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
         have: Subtype.val '' C.suppᶜ = Tᶜ \ C'_val := by
           simp[C'_val, T, C']
           ext x; constructor
-          rintro ⟨xBc, xnC⟩
-          by_cases xeqc : x = c
-          · rw[xeqc] at xnC
-            have: ↑c ∈ Subtype.val '' C.supp := by use c
-            contradiction
-          refine ⟨not_or.2 ⟨xeqc, xBc⟩, ?_⟩
-          intro ⟨xinC, _⟩
-          contradiction
+          · rintro ⟨xBc, xnC⟩
+            by_cases xeqc : x = c
+            · rw[xeqc] at xnC
+              have: ↑c ∈ Subtype.val '' C.supp := by use c
+              contradiction
+            · refine ⟨not_or.2 ⟨xeqc, xBc⟩, ?_⟩
+              intro ⟨xinC, _⟩
+              contradiction
           rintro ⟨xBcc, xnCc⟩
           obtain ⟨xneqc, xinBc⟩ := not_or.1 xBcc
           refine ⟨xinBc, ?_⟩
@@ -946,17 +981,20 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
         simp at eq1
         exact eq1
 
-      have eq_odd: (G.induce Tᶜ).oddComponents.ncard = (G.induce Bᶜ).oddComponents.ncard + (G.induce C'_val).oddComponents.ncard := by
+      have eq_odd: (G.induce Tᶜ).oddComponents.ncard =
+                    (G.induce Bᶜ).oddComponents.ncard + (G.induce C'_val).oddComponents.ncard := by
         rw[← GCc_odd_eq_GBc_odd, iso_odd_card_eq ψ.symm]
         linarith
 
       have tutte_eq: d G T = d G B := by
         apply eq_of_le_of_ge
-        exact edmond_gallai_is_maximal_d G T
+        · exact edmond_gallai_is_maximal_d G T
         calc
           d G B = (G.induce Bᶜ).oddComponents.ncard - B.ncard := rfl
           _ = (G.induce Bᶜ).oddComponents.ncard + 1 - (B.ncard + 1) := by linarith
-          _ ≤ (G.induce Bᶜ).oddComponents.ncard + (G.induce C'_val).oddComponents.ncard - T.ncard := by linarith
+          _ ≤ (G.induce Bᶜ).oddComponents.ncard +
+             (G.induce C'_val).oddComponents.ncard - T.ncard := by linarith
+
           _ ≤ (G.induce Tᶜ).oddComponents.ncard - T.ncard := by linarith
           _ = d G T := rfl
 
@@ -981,9 +1019,9 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
         have: M'.support = C.supp \ {c} := by
           rw[IsMatching.support_eq_verts h', map_verts, isSpanning_iff.1 hM']
           ext x; constructor
-          rintro ⟨⟨_, hy⟩, ⟨_, rfl⟩⟩
-          obtain ⟨_ , ⟨h, rfl⟩⟩ := hy
-          exact h
+          · rintro ⟨⟨_, hy⟩, ⟨_, rfl⟩⟩
+            obtain ⟨_ , ⟨h, rfl⟩⟩ := hy
+            exact h
           rintro h
           have: ↑x ∈ C' := by
             rwa[Function.Injective.mem_set_image Subtype.val_injective]
@@ -1002,7 +1040,8 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
       obtain ⟨S, hS, hS'⟩ := ih (card C') this (G.induce C') rfl
       have: Even (Nat.card ↑C') := by
         rw[Nat.card_coe_set_eq]
-        rw[Set.ncard_image_of_injective _ Subtype.val_injective, Set.ncard_diff_singleton_of_mem hc.1]
+        rw[Set.ncard_image_of_injective _ Subtype.val_injective,
+           Set.ncard_diff_singleton_of_mem hc.1]
         rcases all_odd C with ⟨n , k⟩
         rw[k]
         simp
@@ -1058,7 +1097,8 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
       have Tcgeq2: ((G.induce Tᶜ).induce C_pb).oddComponents.ncard - S.ncard ≥ 2 := by
         rwa[← iso_odd_card_eq ψ]
 
-      have Bceq: (G.induce Bᶜ).oddComponents.ncard - 1 = ((G.induce Tᶜ).induce C_pbᶜ).oddComponents.ncard := by
+      have Bceq: (G.induce Bᶜ).oddComponents.ncard - 1 =
+                 ((G.induce Tᶜ).induce C_pbᶜ).oddComponents.ncard := by
         rw[← iso_odd_card_eq φ, ← odd_comp_eq_one_induce_odd_comp C (all_odd C),
            ← odd_comp_eq (comp_is_closed C)]
         simp
@@ -1072,26 +1112,29 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
         have: Disjoint (Subtype.val '' S ∪ B) {↑c} := by
           rw[Set.disjoint_singleton_right]
           rintro (h | h)
-          have: ↑S ⊆ C' := by simp
-          rcases this h with ⟨_ , ⟨⟨_, I'⟩, I⟩⟩
-          exact I' <| Subtype.val_inj.1 I
+          · have: ↑S ⊆ C' := by simp
+            rcases this h with ⟨_ , ⟨⟨_, I'⟩, I⟩⟩
+            exact I' <| Subtype.val_inj.1 I
           exact c.2 h
 
-        rw[Set.ncard_union_eq, Set.ncard_union_eq, Set.ncard_image_of_injective _ Subtype.val_injective,
+        rw[Set.ncard_union_eq, Set.ncard_union_eq,
+           Set.ncard_image_of_injective _ Subtype.val_injective,
            Set.ncard_singleton]
-        omega
+        · omega
         assumption'
 
 
-      have C_pb_closed: (G.induce Tᶜ).IsClosed C_pb := (is_closed_induce_mono (comp_is_closed C) TcsubsetBc)
+      have C_pb_closed: (G.induce Tᶜ).IsClosed C_pb :=
+        (is_closed_induce_mono (comp_is_closed C) TcsubsetBc)
 
       have tutte_eq: d G T = d G B := by
         apply eq_of_le_of_ge
-        exact edmond_gallai_is_maximal_d G T
+        · exact edmond_gallai_is_maximal_d G T
         calc
           d G T = (G.induce Tᶜ).oddComponents.ncard - T.ncard := rfl
           _ = ((G.induce Tᶜ).induce C_pb).oddComponents.ncard +
-              ((G.induce Tᶜ).induce C_pbᶜ).oddComponents.ncard - T.ncard := by rw[← odd_comp_eq C_pb_closed]; omega
+              ((G.induce Tᶜ).induce C_pbᶜ).oddComponents.ncard - T.ncard := by
+               rw[← odd_comp_eq C_pb_closed]; omega
           _ ≥ (G.induce Bᶜ).oddComponents.ncard - B.ncard := by rw[T_card, ← Bceq]; omega
           _ = d G B := rfl
 
@@ -1099,8 +1142,8 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
     refine ⟨?_, this⟩
     by_contra! h
     rcases not_matchable_exists_set h with ⟨A, hA⟩
-    obtain ⟨a, _ , b⟩ := temp hA
-
+    obtain ⟨T, TssB , ⟨_, hT⟩⟩ := temp A ((G.from_set_to_comp_neighbors A) ▸ hA)
+    linarith[G.edmond_gallai_is_maximal_d (B \ T)]
 
 
 end SimpleGraph
