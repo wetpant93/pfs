@@ -835,9 +835,6 @@ lemma odd_ncard_geq_one_oddComponents (G : SimpleGraph V) (h : Odd (card V)) :
   rwa[odd_ncard_oddComponents, Nat.card_eq_fintype_card]
 
 
-
-
-set_option maxHeartbeats 400000 in -- horrible needs to be fixed
 open Classical in
 theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
   (G.IsMatchableToComps B) ∧
