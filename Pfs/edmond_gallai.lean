@@ -169,6 +169,8 @@ lemma all_odd_factor_area :
 
 abbrev ι : G.induce S ↪g G := Embedding.induce S
 
+#check Embedding.induce
+
 def comp_ι (S) (C : (G.induce S).ConnectedComponent) : G.ConnectedComponent :=
   C.map ι.toHom
 
@@ -198,29 +200,19 @@ lemma closed_mem_of_reachable {v w : V}
   by_contra! wns
   exact h₀ <| exists_crossing_edge vs wns h₁
 
-lemma closed_reachable_induce {v w : V} {S : Set V}
+
+lemma closed_reachable_induce {v w} {S : Set V}
   (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.Reachable v w) :
-    ∃(ws : w ∈ S),  (G.induce S).Reachable ⟨v, vs⟩ ⟨w, ws⟩ := by
-  have ws := closed_mem_of_reachable vs h₀ h₁
-
-  rcases h₁ with ⟨p⟩
-  have hw: (x : V) → x ∈ p.support → x ∈ S := by
-    intro x h
-    induction p with
-      | nil =>
-        rw[Walk.support_nil, List.mem_singleton] at h
-        rwa[h]
-      | @cons v u w vu h ih =>
-        rw[Walk.mem_support_iff] at h
-        rcases h with (h | h)
-        · rwa[h]
-        by_cases us: u ∈ S
-        · exact ih us ws h
-        · let nvu := h₀ ⟨v, vs, u, us, vu⟩
-          contradiction
-  use ws
-  use Walk.induce S p hw
-
+  ∃(ws : w ∈ S), (G.induce S).Reachable ⟨v, vs⟩ ⟨w, ws⟩ := by
+  obtain ⟨p⟩ := h₁
+  induction p with
+    | nil =>
+      use vs
+    | @cons u v w uv p ih =>
+      have h': v ∈ S := closed_mem_of_reachable vs h₀ ⟨uv.toWalk⟩
+      have adj: (G.induce S).Adj ⟨u, vs⟩ ⟨v, h'⟩ := uv
+      rcases ih h' with ⟨ws, ⟨p⟩⟩
+      exact ⟨ws, ⟨Walk.cons adj p⟩⟩
 
 
 lemma closed_comp_dichotomy (h : G.IsClosed S) (C : G.ConnectedComponent) :
@@ -360,12 +352,6 @@ lemma is_closed_induced_something {B : Set {x // x ∈ S}}
   · exact hc ⟨⟨x, x'⟩, hx', ⟨y, hy'⟩, hy hy', xy⟩
   · exact he ⟨y, ⟨yt, hy'⟩, ⟨x, x'⟩, hx', xy.symm⟩
 
-lemma is_closed_induce_mono {B : Set {x // x ∈ S}} {T : Set V}
-  (hc : (G.induce S).IsClosed B) (hs : T ⊆ S) :
-  (G.induce T).IsClosed (Subtype.val ⁻¹' (↑B)) :=
-  is_closed_induced_something hc (by simp [Set.diff_eq_empty.2 hs])
-
-
 
 lemma iso_closed_is_closed (φ : G ≃g G') (h : G.IsClosed S) : G'.IsClosed (φ '' S) := by
   rintro ⟨x', hx, y', hy, x'y'⟩
@@ -381,13 +367,12 @@ lemma iso_comp_card_eq (φ : G ≃g G') :
   ∀ C : G.ConnectedComponent, C.supp.ncard = (C.map φ.toHom).supp.ncard := by
   intro C
   rw[Set.ncard_congr (fun v _ ↦ φ v)]
-
   · intro v vc
     obtain ⟨x, rfl⟩ := vc
     rw[ConnectedComponent.map_mk, ConnectedComponent.mem_supp_iff]
     rfl
 
-  · exact fun _ _ _ _ h ↦ φ.injective h
+  · exact  (fun _ _ _ _ h ↦ φ.injective h)
 
   · intro v vc
     use (φ.symm) v
@@ -418,11 +403,6 @@ lemma iso_odd_card_eq (φ : G ≃g G') : G.oddComponents.ncard = G'.oddComponent
              comp_card_eq <| C.map φ.symm.toHom]
   exact Codd
 
-def induce_induce_iso_set_ss' (G : SimpleGraph V) (h : B ⊆ S) :
-  (G.induce S).induce ((↑) ⁻¹' B) ≃g G.induce B where
-  toFun := fun ⟨⟨x, _⟩, hx⟩ ↦ ⟨x, hx⟩
-  invFun := fun ⟨x, hx⟩ ↦ ⟨⟨x, h hx⟩, hx⟩
-  map_rel_iff' := by rfl
 
 def induce_congr (h : B = S) : G.induce B ≃g G.induce S where
   toFun := by subst h; exact id
@@ -434,26 +414,6 @@ def induce_congr (h : B = S) : G.induce B ≃g G.induce S where
 
   left_inv := by intro x; subst h; rfl
   right_inv := by intro x; subst h; rfl
-
-
-
-lemma image_induce_induce_iso_preimage
-  (G : SimpleGraph V) (h : B ⊆ S) (X : Set {s // s ∈ S}) :
-  (G.induce_induce_iso_set_ss' h) '' (Subtype.val ⁻¹' X) = ((Subtype.val ⁻¹' X) : (Set (↑B))) := by
-  ext x; constructor
-  · rintro ⟨x', ⟨hx', hx''⟩⟩
-    use x'; constructor;
-    · assumption
-    rw[← hx'']
-    dsimp[induce_induce_iso_set_ss']
-
-  rintro ⟨x', ⟨hx', hx''⟩⟩
-  rw[Set.mem_image]
-  dsimp[induce_induce_iso_set_ss']
-  obtain ⟨y, hy⟩ := x'
-  simp at *
-  rw[← hx'']
-  exact ⟨hy, hx'⟩
 
 
 variable [Fintype V] [Fintype V']
@@ -521,18 +481,17 @@ def exists_maximal_score (G : SimpleGraph V) :
   exact Set.mem_univ S |> h S
 
 noncomputable
-def edmond_gallai_set (G : SimpleGraph V) : Set V := (exists_maximal_score G).choose
+def edmonds_gallai_set (G : SimpleGraph V) : Set V := (exists_maximal_score G).choose
 
-
-lemma edmond_gallai_is_maximal_d (G : SimpleGraph V) :
-  ∀ (B : Set V), d G B ≤ d G (edmond_gallai_set G) := by
+lemma edmonds_gallai_is_maximal_d (G : SimpleGraph V) :
+  ∀ (B : Set V), d G B ≤ d G (edmonds_gallai_set G) := by
   intro B
   have h := (exists_maximal_score G).choose_spec B
   apply Prod.Lex.monotone_fst at h
-  rw[edmond_gallai_set]; exact h
+  rw[edmonds_gallai_set]; exact h
 
-lemma edmond_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmond_gallai_set G)) :
-  S.ncard ≤ (edmond_gallai_set G).ncard := by
+lemma edmonds_gallai_is_maximal_card (G : SimpleGraph V) (h : d G S = d G (edmonds_gallai_set G)) :
+  S.ncard ≤ (edmonds_gallai_set G).ncard := by
   have h' := (exists_maximal_score G).choose_spec S
   rw[score, Prod.Lex.le_iff] at h'
   rcases h' with h_lt | ⟨_ , h'⟩
@@ -995,7 +954,6 @@ theorem aux (G : SimpleGraph V) : ∃ (B : Set V),
     rcases not_matchable_exists_set h with ⟨A, hA⟩
     obtain ⟨T, TssB , ⟨_, hT⟩⟩ := temp A ((G.from_set_to_comp_neighbors A) ▸ hA)
     linarith[G.edmond_gallai_is_maximal_d (B \ T)]
-
 
 
 end SimpleGraph
