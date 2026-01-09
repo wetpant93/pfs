@@ -4,13 +4,24 @@ import Mathlib.Combinatorics.SimpleGraph.Subgraph
 import Mathlib.Combinatorics.SimpleGraph.Matching
 import Mathlib.Combinatorics.SimpleGraph.Maps
 import Mathlib.Combinatorics.SimpleGraph.Tutte
-
+import Pfs.IsClosed
 
 variable {V : Type*}
 variable {G H : SimpleGraph V}
 variable {S : Set V}
 
 namespace SimpleGraph
+
+
+lemma iso_closed_is_closed (φ : G ≃g G') (h : G.IsClosed S) : G'.IsClosed (φ '' S) := by
+  rintro ⟨x', hx, y', hy, x'y'⟩
+  simp at hy
+  rcases hx with ⟨x, ⟨xs, imx⟩⟩
+  let imy := RelIso.apply_symm_apply φ y'
+  by_cases h': φ.symm y' ∈ S
+  · exact hy (φ.symm y') h' imy
+  rw[← imx, ← imy] at x'y'
+  exact h ⟨x, xs, φ.symm y', h', (Iso.map_adj_iff φ).1 x'y'⟩
 
 lemma exists_crossing_edge {v w : V}
   {X : Set V} (h₀ : v ∈ X) (h₁ : w ∉ X) (h : G.Reachable v w) : ∃ x ∈ X, ∃ y ∈ Xᶜ, G.Adj x y := by
