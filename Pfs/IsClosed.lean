@@ -1,13 +1,8 @@
 import Mathlib.Combinatorics.SimpleGraph.Basic
-import Mathlib.Data.Set.Lattice
-import Mathlib.Data.Set.Card
-import Mathlib.Combinatorics.SimpleGraph.Maps
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.Connected
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.WalkCounting
-import Mathlib.Combinatorics.SimpleGraph.Subgraph
 
 variable {V : Type*} {G : SimpleGraph V} {S T : Set V} {v w : V}
-variable {V' : Type*} {G' : SimpleGraph V'} {S' T' : Set V'}
 
 namespace SimpleGraph
 
@@ -80,14 +75,13 @@ lemma IsClosed.induce_of_not_adj {B : Set {x // x ∈ S}}
   · exact he ⟨y, ⟨yt, hy'⟩, ⟨x, x'⟩, hx', xy.symm⟩
 
 
-lemma IsClosed.mem_of_reachable {v w : V}
+lemma IsClosed.mem_of_reachable
   (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.Reachable v w) : w ∈ S := by
   by_contra! wns
   exact h₀ <| exists_crossing_edge vs wns h₁
 
 
-lemma IsClosed.reachable_induce {v w} {S : Set V}
-  (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.Reachable v w) :
+lemma IsClosed.reachable_induce (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.Reachable v w) :
   ∃(ws : w ∈ S), (G.induce S).Reachable ⟨v, vs⟩ ⟨w, ws⟩ := by
   obtain ⟨p⟩ := h₁
   induction p with
@@ -110,7 +104,6 @@ lemma IsClosed.connectedComponent_subset_or_subset_compl
     exact wnsc
 
   exact h <| exists_crossing_edge this vns <| C.reachable_of_mem_supp wc vc
-
 
 lemma IsClosed.connectedComponent_map_induce_injective (h : G.IsClosed S) :
   Function.Injective (ConnectedComponent.map (Embedding.induce S : G.induce S ↪g G).toHom) := by
@@ -147,22 +140,6 @@ lemma IsClosed.connectedComponent_map_induce_supp_eq {S : Set V} (h : G.IsClosed
         h.connectedComponent_map_induce_supp_subset C
         <| (ConnectedComponent.mem_supp_iff _ _).2 hx
 
-abbrev ι : G.induce S ↪g G := Embedding.induce S
-
-lemma IsClosed.connectedComponent_map_induce_range (h : G.IsClosed S) :
-  Set.range (ConnectedComponent.map (ι.toHom : (G.induce S) →g G)) =
-  {C : G.ConnectedComponent | C.supp ⊆ S} := by
-  ext x
-  simp only [Set.range, Set.mem_setOf]
-  constructor
-  · exact fun ⟨y, hy⟩ ↦ hy ▸ h.connectedComponent_map_induce_supp_subset y
-  · refine x.ind fun u ↦ ?_
-    intro hu
-    have: u ∈ S := hu ConnectedComponent.connectedComponentMk_mem
-    exact ⟨(G.induce S).connectedComponentMk ⟨u, this⟩, rfl⟩
-
-
-
 
 lemma IsClosed.connectedComponent_ncard_eq
   (h : G.IsClosed S) (C : (G.induce S).ConnectedComponent) :
@@ -171,8 +148,7 @@ lemma IsClosed.connectedComponent_ncard_eq
      Set.ncard_image_of_injective _ Subtype.val_injective]
 
 
-variable [Fintype V] in
-theorem IsClosed.oddComponents_ncard_add_compl_eq (h : G.IsClosed S) :
+theorem IsClosed.oddComponents_ncard_add_compl_eq [Fintype V] (h : G.IsClosed S) :
   (G.induce S).oddComponents.ncard + (G.induce Sᶜ).oddComponents.ncard = G.oddComponents.ncard := by
   rw[← Set.ncard_image_of_injective _ h.connectedComponent_map_induce_injective,
      ← Set.ncard_image_of_injective _ h.compl.connectedComponent_map_induce_injective,
@@ -200,11 +176,5 @@ theorem IsClosed.oddComponents_ncard_add_compl_eq (h : G.IsClosed S) :
   rw[← ximsc, ConnectedComponent.map_mk, ConnectedComponent.map_mk, ConnectedComponent.eq] at xim
   exact h <| exists_crossing_edge ys zs xim
 
-
-noncomputable
-def IsClosed.connectedComponentEquiv (h : G.IsClosed S) :
-  (G.induce S).ConnectedComponent ≃ {C : G.ConnectedComponent | C.supp ⊆ S} :=
-  h.connectedComponent_map_induce_range ▸
-  Equiv.ofInjective _ h.connectedComponent_map_induce_injective
 
 end SimpleGraph
