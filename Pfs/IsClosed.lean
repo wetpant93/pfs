@@ -93,18 +93,6 @@ lemma IsClosed.reachable_induce (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.R
       rcases ih h' with ⟨ws, ⟨p⟩⟩
       exact ⟨ws, ⟨Walk.cons adj p⟩⟩
 
-lemma IsClosed.connectedComponent_subset_or_subset_compl
-  (h : G.IsClosed S) (C : G.ConnectedComponent) :
-  C.supp ⊆ S ∨ C.supp ⊆ Sᶜ := by
-  by_contra! h'
-  obtain ⟨v, vc, vns⟩ := Set.not_subset.1 h'.1
-  obtain ⟨w, wc, wnsc⟩ := Set.not_subset.1 h'.2
-  have: w ∈ S := by
-    simp at wnsc
-    exact wnsc
-
-  exact h <| exists_crossing_edge this vns <| C.reachable_of_mem_supp wc vc
-
 lemma IsClosed.connectedComponent_map_induce_injective (h : G.IsClosed S) :
   Function.Injective (ConnectedComponent.map (Embedding.induce S : G.induce S ↪g G).toHom) := by
   intro C C' h'
@@ -171,10 +159,9 @@ theorem IsClosed.oddComponents_ncard_add_compl_eq [Fintype V] (h : G.IsClosed S)
 
   rw[Set.disjoint_iff]
   rintro x ⟨⟨xs, ⟨_, xim⟩⟩, ⟨xsc, ⟨_, ximsc⟩⟩⟩
-  obtain ⟨⟨y,ys⟩, rfl⟩ := xs.nonempty_supp
-  obtain ⟨⟨z,zs⟩, rfl⟩ := xsc.nonempty_supp
-  rw[← ximsc, ConnectedComponent.map_mk, ConnectedComponent.map_mk, ConnectedComponent.eq] at xim
-  exact h <| exists_crossing_edge ys zs xim
+  let ⟨x', hx'⟩ := x.nonempty_supp
+  exact (ximsc ▸ h.compl.connectedComponent_map_induce_supp_subset xsc) hx' <|
+        (xim ▸ h.connectedComponent_map_induce_supp_subset xs) hx'
 
 
 end SimpleGraph

@@ -70,27 +70,16 @@ lemma IsFactorCriticalArea.odd_ncard [Fintype V]
       not_not, ← hM.2, Set.ncard_eq_toFinset_card', hM.1.support_eq_verts]
   exact hM.1.even_card
 
-
-variable [Fintype V] in
-open Classical in
-open Fintype in
-lemma all_odd_factor_area (h : ∀ C : G.ConnectedComponent, G.IsFactorCriticalArea C.supp) :
-  card G.ConnectedComponent = G.oddComponents.ncard := by
-  rw[Fintype.card_eq_nat_card, ← Nat.card_congr (Equiv.Set.univ _)]
-  congr
-  symm
-  rw[Set.eq_univ_iff_forall]
-  exact (fun C ↦ IsFactorCriticalArea.odd_ncard (h C))
-
-lemma iso_comp_card_eq (φ : G ≃g G') (C : G.ConnectedComponent) :
+lemma Iso.ncard_supp_map_eq (φ : G ≃g G') (C : G.ConnectedComponent) :
   C.supp.ncard = (C.map φ.toHom).supp.ncard := by
   rw[Set.ncard, Set.encard_congr (C.isoEquivSupp φ), ← Set.ncard]
   rfl
 
-lemma iso_odd_card_eq (φ : G ≃g G') : G.oddComponents.ncard = G'.oddComponents.ncard := by
+lemma Iso.oddComponents_ncard_eq (φ : G ≃g G') :
+  G.oddComponents.ncard = G'.oddComponents.ncard := by
   have: G.oddComponents ≃ G'.oddComponents := by
     refine φ.connectedComponentEquiv.subtypeEquiv fun u ↦ ?_
-    simp only [oddComponents, Set.mem_setOf, iso_comp_card_eq φ]
+    simp only [oddComponents, Set.mem_setOf, Iso.ncard_supp_map_eq φ]
     rfl
   rw[Set.ncard, Set.encard_congr this, Set.ncard]
 
@@ -108,8 +97,8 @@ def induce_congr (h : B = S) : G.induce B ≃g G.induce S where
 
 variable [Fintype V] [Fintype V']
 
-def induce_induce_iso (G : SimpleGraph V) (C : Set {x // x ∈ S}) :
-  (G.induce S).induce C ≃g (G.induce <| (↑) '' C) where
+def induce_induce_iso (G : SimpleGraph V) (T : Set {x // x ∈ S}) :
+  (G.induce S).induce T ≃g (G.induce (↑T : Set V)) where
   toFun := by
     rintro ⟨⟨s, hs⟩, hc⟩
     use s
@@ -119,7 +108,7 @@ def induce_induce_iso (G : SimpleGraph V) (C : Set {x // x ∈ S}) :
     rintro ⟨s, hs⟩
     have: s ∈ S := by rcases hs with ⟨⟨_, hs'⟩, ⟨_, rfl⟩⟩; exact hs'
     use ⟨s, this⟩
-    have: ⟨s, this⟩ ∈ C := by
+    have: ⟨s, this⟩ ∈ T := by
       rcases hs with ⟨x, hx, rfl⟩; exact hx
     assumption
 
@@ -227,7 +216,7 @@ lemma deficiency_remove_hall_violator_lt
       exact ⟨hx, ⟨y, ⟨rfl, hx' ▸ xy⟩⟩⟩
     · rfl
 
-  have compsST_closed : (G.induce (S\T)ᶜ).IsClosed compsST := by
+  have compsST_closed : (G.induce (S \ T)ᶜ).IsClosed compsST := by
     have: Subtype.val '' T = (S \ T)ᶜ \ Sᶜ := by
       tauto_set
 
@@ -238,7 +227,7 @@ lemma deficiency_remove_hall_violator_lt
     let ψ := (G.induce_induce_iso compsᶜ).symm.comp <|
              (G.induce_congr this).comp <|
              (G.induce_induce_iso compsST)
-    rw[← compsST_closed.oddComponents_ncard_add_compl_eq, iso_odd_card_eq ψ]
+    rw[← compsST_closed.oddComponents_ncard_add_compl_eq, Iso.oddComponents_ncard_eq ψ]
     linarith
 
   have S_diff_T_ncard: - ((S \ ↑T).ncard : ℤ) = -S.ncard + ↑T.ncard := by
@@ -255,13 +244,13 @@ lemma deficiency_remove_hall_violator_lt
                  comps_closed.oddComponents_ncard_add_compl_eq]
     _ = d G S := rfl
 
-#check ConnectedComponent.nonempty_supp
+
 
 open Subgraph
 open Fintype
 
 open Classical in
-lemma one_factor_iff (h₀ : G.IsMatchableToComponents S)
+lemma exists_isPerfectMatching_iff_card_eq (h₀ : G.IsMatchableToComponents S)
   (h₁ : ∀ (C : (G.induce Sᶜ).ConnectedComponent), (G.induce Sᶜ).IsFactorCriticalArea C.supp) :
   card S = card (G.induce Sᶜ).ConnectedComponent ↔ ∃ M : Subgraph G, M.IsPerfectMatching := by
   obtain ⟨f, finj, hf⟩ := h₀
@@ -358,7 +347,7 @@ lemma one_factor_iff (h₀ : G.IsMatchableToComponents S)
   have Sleq: S.ncard ≥ (G.induce Sᶜ).oddComponents.ncard := by -- ≤ wg. tutte
     by_contra!
     apply nonviolator
-    rwa[IsTutteViolator, ← iso_odd_card_eq iso]
+    rwa[IsTutteViolator, ← Iso.oddComponents_ncard_eq iso]
 
   have oddeq: card (induce Sᶜ G).ConnectedComponent = (induce Sᶜ G).oddComponents.ncard := by
     rw[Fintype.card_eq_nat_card, ← Nat.card_congr (Equiv.Set.univ _)]
@@ -377,7 +366,8 @@ lemma one_factor_iff (h₀ : G.IsMatchableToComponents S)
   rw[Seq, oddeq, le_antisymm Sgeq Sleq]
 
 
-lemma helper₁ (h₀ : Even (Nat.card V)) (h₁ : S.ncard < (G.induce Sᶜ).oddComponents.ncard) :
+lemma oddComponents_sub_ncard_le_two
+  (h₀ : Even (Nat.card V)) (h₁ : S.ncard < (G.induce Sᶜ).oddComponents.ncard) :
   (G.induce Sᶜ).oddComponents.ncard - S.ncard ≥ 2 := by
 
   by_cases hS : Odd (S.ncard)
@@ -416,7 +406,7 @@ lemma ncard_oddComponents_induce_compl_eq_add
   let ψ₁ := (G.induce_congr hcc).comp <| G.induce_induce_iso C'ᶜ -- G[Sᶜ][Cᶜ] ≃g G[Cᶜ]
   rw[← IsClosed.oddComponents_ncard_add_compl_eq <|
      IsClosed.val_preimage_closed Sᶜ (ConnectedComponent.isClosed_supp C),
-     iso_odd_card_eq ψ₀, iso_odd_card_eq ψ₁]
+     Iso.oddComponents_ncard_eq ψ₀, Iso.oddComponents_ncard_eq ψ₁]
   ring
 
 
@@ -436,7 +426,7 @@ lemma ncard_oddComponents_induce_compl_eq_add'
   let ψ₁ := (G.induce_congr hcc).comp <| G.induce_induce_iso T'ᶜ -- G[Sᶜ][Tᶜ] ≃g G[Tᶜ]
   rw[← IsClosed.oddComponents_ncard_add_compl_eq <|
      IsClosed.val_preimage_closed Sᶜ hT,
-     iso_odd_card_eq ψ₀, iso_odd_card_eq ψ₁]
+     Iso.oddComponents_ncard_eq ψ₀, Iso.oddComponents_ncard_eq ψ₁]
   ring
 
 lemma odd_ncard_geq_one_oddComponents (G : SimpleGraph V) (h : Odd (card V)) :
@@ -449,7 +439,7 @@ lemma odd_ncard_geq_one_oddComponents (G : SimpleGraph V) (h : Odd (card V)) :
 def IsEdmondsGallai (G : SimpleGraph V) (S : Set V) : Prop :=
   ∀ B : Set V, (d G S ≥ d G B) ∧ (d G S = d G B → S.ncard ≥ B.ncard)
 
-lemma exists_edmonds_gallai_set (G : SimpleGraph V) :
+lemma exists_isEdmondsGallai (G : SimpleGraph V) :
   ∃ (S : Set V) , G.IsEdmondsGallai S := by
   use G.edmonds_gallai_set
   intro B
@@ -460,13 +450,14 @@ lemma exists_edmonds_gallai_set (G : SimpleGraph V) :
 
 
 omit [Fintype V] in
-lemma dunno_yet (h : G.IsTutteViolator S) :
+lemma IsTutteViolator.lt_oddComponents_induce_compl (h : G.IsTutteViolator S) :
   (G.induce Sᶜ).oddComponents.ncard > S.ncard := by
   have iso: G.induce Sᶜ ≃g ((⊤ : G.Subgraph).deleteVerts S).coe := by
     rw[deleteVerts, Subgraph.verts_top, ← Set.compl_eq_univ_diff, G.induce_eq_coe_induce_top Sᶜ]
-  rwa[iso_odd_card_eq iso]
+  rwa[Iso.oddComponents_ncard_eq iso]
 
-lemma all_comps_odd (h : G.IsEdmondsGallai S) :
+
+lemma IsEdmondsGallai.odd_ncard_supp (h : G.IsEdmondsGallai S) :
   ∀ C : (G.induce Sᶜ).ConnectedComponent, Odd C.supp.ncard := by
   classical
   intro C
@@ -494,14 +485,14 @@ lemma all_comps_odd (h : G.IsEdmondsGallai S) :
   apply le_antisymm ?_ (h T).1
   simp only [d, ← C.isClosed_supp.oddComponents_ncard_add_compl_eq,
              odd_comp_eq_zero_induce_even_comp C h_even, zero_add,
-             ← iso_odd_card_eq τ,
+             ← Iso.oddComponents_ncard_eq τ,
              ncard_oddComponents_induce_compl_eq_add (Set.singleton_subset_iff.2 hC), T_ncard,
              Nat.cast_add, Nat.cast_one]
 
   linarith[((G.induce Sᶜ).induce C').odd_ncard_geq_one_oddComponents odd_C']
 
 
-lemma all_comps_factor_area (h : G.IsEdmondsGallai S) :
+lemma IsEdmondsGallai.isFactorCriticalArea_supp (h : G.IsEdmondsGallai S) :
   ∀ C : (G.induce Sᶜ).ConnectedComponent, (G.induce Sᶜ).IsFactorCriticalArea C.supp := by
   classical
   intro C
@@ -525,7 +516,7 @@ lemma all_comps_factor_area (h : G.IsEdmondsGallai S) :
   have even_P' : Even (Nat.card P') := by
     rw[Nat.card_coe_set_eq, Set.ncard_diff_singleton_of_mem hC.1,
        ← Nat.not_odd_iff_even, ← Nat.odd_add_one, Nat.sub_add_cancel]
-    · exact all_comps_odd h C
+    · exact h.odd_ncard_supp C
     · apply Nat.one_le_of_lt
       rw[Set.ncard_pos]
       exact C.nonempty_supp
@@ -536,7 +527,7 @@ lemma all_comps_factor_area (h : G.IsEdmondsGallai S) :
   rcases exists_tutte_violator with ⟨Q, hQ⟩
 
   let T := S ∪ ↑((Subtype.val '' Q) ∪ {c})
-  let deficency := dunno_yet hQ
+  let deficency := IsTutteViolator.lt_oddComponents_induce_compl hQ
 
   have Q_union_c_subset_C: ↑Q ∪ {c} ⊆ C.supp := by
     rw[Set.union_subset_iff]
@@ -567,22 +558,20 @@ lemma all_comps_factor_area (h : G.IsEdmondsGallai S) :
   suffices d G S = d G T by linarith[(h T).2 this]
   apply le_antisymm ?_ (h T).1
   simp only [d, ← C.isClosed_supp.oddComponents_ncard_add_compl_eq,
-            odd_comp_eq_one_induce_odd_comp C (all_comps_odd h C), Nat.cast_add,
-            Nat.cast_one, ← iso_odd_card_eq ψ,
+            odd_comp_eq_one_induce_odd_comp C (h.odd_ncard_supp C), Nat.cast_add,
+            Nat.cast_one, ← Iso.oddComponents_ncard_eq ψ,
             ncard_oddComponents_induce_compl_eq_add Q_union_c_subset_C,
-            ← iso_odd_card_eq τ, T_ncard]
+            ← Iso.oddComponents_ncard_eq τ, T_ncard]
   ring_nf
   rw[← Nat.cast_sub deficency.le]
-  linarith[helper₁ even_P' deficency]
-
+  linarith[oddComponents_sub_ncard_le_two even_P' deficency]
 
 theorem aux (G : SimpleGraph V) : ∃ (S : Set V),
   (G.IsMatchableToComponents S) ∧
   (∀ (C : (G.induce Sᶜ).ConnectedComponent), (G.induce Sᶜ).IsFactorCriticalArea C.supp) := by
   classical
-  rcases G.exists_edmonds_gallai_set with ⟨S, hS⟩
-  use S
-  refine ⟨?_, all_comps_factor_area hS⟩
+  rcases G.exists_isEdmondsGallai with ⟨S, hS⟩
+  refine ⟨S, ⟨?_, hS.isFactorCriticalArea_supp⟩⟩
   by_contra! h
   rcases not_matchable_exists_hall_violator h with ⟨T, hT⟩
   linarith[G.deficiency_remove_hall_violator_lt T hT, hS (S \ T)]
