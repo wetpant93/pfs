@@ -20,12 +20,12 @@ def IsVertexSeparator (G : SimpleGraph V) (S : Set V) (v w : V) : Prop :=
 def IsSeparator (G : SimpleGraph V) (S : Set V) : Prop :=
   ∃ x : V, ∃ y : V, G.IsVertexSeparator S x y
 
-def IsMinimalSeparator (G : SimpleGraph V) (X : Set V) : Prop :=
-  G.IsSeparator X ∧ ∀ S, G.IsSeparator S → X.ncard ≤ S.ncard
+def IsMinimumSeparator (G : SimpleGraph V) (X : Set V) : Prop :=
+  X.Finite ∧ G.IsSeparator X ∧ ∀ S, S.Finite ∧ G.IsSeparator S → X.ncard ≤ S.ncard
 
 
-def IsKConnected [Fintype V] (G : SimpleGraph V) (k : ℕ) : Prop :=
-  Fintype.card V > k ∧ ¬(∃ S : Set V, S.ncard < k ∧ G.IsSeparator S)
+def IsKConnected (G : SimpleGraph V) (k : ℕ) : Prop :=
+  (∃ X : Set V, X.ncard > k) ∧ ¬(∃ S : Set V, S.Finite ∧ S.ncard < k ∧ G.IsSeparator S)
 
 def absorbInto (G : SimpleGraph V) (x y : V) : SimpleGraph {z // z ≠ y} where
   Adj a b := a ≠ b ∧ (G.Adj ↑a ↑b ∨ (x = ↑a ∧ G.Adj ↑b y) ∨ (x = ↑b ∧ G.Adj ↑a y))
@@ -78,8 +78,6 @@ def transport (h : x ≠ y) {u v : V} : G.Walk u v → (G.absorbInto x y).Walk (
     by_cases h₀ : proj u h = proj w h
     · exact p'_t.copy h₀.symm rfl
     · exact Walk.cons (Or.resolve_right (proj_adj e h) h₀) p'_t
-
-#check Walk.copy
 
 lemma transport_prop {u v : V} (h : x ≠ y) (p : G.Walk u v) :
   ∀ z ∈ (transport h p).support, z.val ∈ p.support ∨ z.val = x := by
@@ -195,7 +193,7 @@ lemma keep_sep {X : Set {z // z ≠ y}} (h : x ≠ y) (hX : (G.absorbInto x y).I
   simp[h'.2, Set.mem_image, Subtype.val_inj, v.property, w.property]
 
 
-lemma IsMinimalSeperator.adj_comp [Fintype V] {X : Set V} (h : G.IsMinimalSeparator X) :
+lemma IsMinimalSeperator.adj_comp [Fintype V] {X : Set V} (h : G.IsMinimumSeparator X) :
   ∀ C : (G.induce Xᶜ).ConnectedComponent, ∀ x ∈ X, ∃ c ∈ C, G.Adj x c := by
   classical
   by_contra! h'
@@ -235,7 +233,27 @@ lemma IsMinimalSeperator.adj_comp [Fintype V] {X : Set V} (h : G.IsMinimalSepara
       contradiction
     exact C.isClosed_supp <| exists_crossing_edge hC' this p''.reachable.symm
 
-  linarith[h.2 (X \ {x}) X_sep, Set.ncard_diff_singleton_lt_of_mem hx]
+  --linarith[h.2 (X \ {x}) X_sep, Set.ncard_diff_singleton_lt_of_mem hx]
+
+
+lemma IsKConnected.Connected {k : ℕ} (h : G.IsKConnected k) (hk : k > 0) : G.Connected := by
+  have preconnected: G.Preconnected := by
+    intro x y
+    by_contra! h'
+    apply h.2
+    use ∅
+    simp[hk, IsSeparator, IsVertexSeparator]
+    refine ⟨x, y, ?_⟩
+    intro p'
+    apply h'
+    use p'
+
+  have nonempty: Nonempty V := by
+    rcases h.1 with ⟨X, hX⟩
+    sorry
+
+
+
 
 
 open Classical in
@@ -250,7 +268,7 @@ lemma aux₀ [Fintype V] (e : G.Adj x y) (h_card : Fintype.card V > 4)
     sorry
   rcases h_sep absorb_card with ⟨S, hS⟩
 
-  have S_card: S.ncard = 2:= by
+  have S_card: S.ncard = 2 := by
     sorry
 
   have xinS: ⟨x, e.ne⟩ ∈ S := sorry
@@ -275,7 +293,8 @@ lemma aux₀ [Fintype V] (e : G.Adj x y) (h_card : Fintype.card V > 4)
 
 
 
-lemma aux₁ [Fintype V] {k : ℕ} (hk : k ≥ 1) (h : G.IsKConnected k) :
+
+lemma IsKConnected.exists_edge [Fintype V] {k : ℕ} (hk : k ≥ 1) (h : G.IsKConnected k) :
   ∃ x y : V, G.Adj x y := by
   by_contra!
   sorry
@@ -291,14 +310,33 @@ lemma exists_min_comp_card [Nonempty V] [Fintype V] :
   apply Finite.exists_min
 
 noncomputable
-def score_sep [Nonempty V] [Fintype V] (e : G.Adj x y) (z : V)
+def score_sep [Fintype V] {z : V} (e : G.Adj x y)
   (h_sep : G.IsSeparator {x,y,z}) (h_card : Fintype.card V > 4) : ℕ := by
   classical
   have c_nonempty: Nonempty ({x,y,z}ᶜ : Set V) := sorry
   let min_comp := ((G.induce {x,y,z}ᶜ).exists_min_comp_card).choose
   exact min_comp.supp.ncard
 
---lemma score_sep_min := sorry
+lemma score_sep_min [Fintype V] (e : G.Adj x y) (h_card : Fintype.card V > 4)
+  (h_exists : ∃ z, G.IsSeparator {x, y, z}) :
+  ∃ (z : V) (h_z : G.IsSeparator {x, y, z}),
+    ∀ (z' : V) (h_z' : G.IsSeparator {x, y, z'}),
+    score_sep e h_z h_card ≤ score_sep e h_z' h_card := by
+  classical
+  let P := fun (n : ℕ) ↦ ∃ (z : V) (hz : G.IsSeparator {x,y,z}), score_sep e hz h_card = n
+
+  have hP_exists : ∃ n, P n := by
+    obtain ⟨z_val, hz_val⟩ := h_exists
+    exact ⟨score_sep e hz_val h_card, ⟨z_val, hz_val, rfl⟩⟩
+  rcases Nat.find_spec hP_exists with ⟨z, ⟨hz₀, hz₁⟩⟩
+  use z
+  use hz₀
+  intro z' hz'
+  rw[hz₁]
+  apply Nat.find_min'
+  use z'
+  use hz'
+
 
 
 open Classical in

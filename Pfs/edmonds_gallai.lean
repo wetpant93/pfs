@@ -566,6 +566,7 @@ lemma IsEdmondsGallai.isFactorCriticalArea_supp (h : G.IsEdmondsGallai S) :
   rw[← Nat.cast_sub deficency.le]
   linarith[oddComponents_sub_ncard_le_two even_P' deficency]
 
+
 theorem aux (G : SimpleGraph V) : ∃ (S : Set V),
   (G.IsMatchableToComponents S) ∧
   (∀ (C : (G.induce Sᶜ).ConnectedComponent), (G.induce Sᶜ).IsFactorCriticalArea C.supp) := by
