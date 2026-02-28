@@ -232,9 +232,18 @@ lemma IsMinimalSeperator.adj_comp [Fintype V] {X : Set V} (h : G.IsMinimumSepara
       have: y ∈ Subtype.val '' C.supp := by use ⟨y, p'_avoids_X _ p'.start_mem_support⟩
       contradiction
     exact C.isClosed_supp <| exists_crossing_edge hC' this p''.reachable.symm
-
+  sorry
   --linarith[h.2 (X \ {x}) X_sep, Set.ncard_diff_singleton_lt_of_mem hx]
 
+
+lemma IsKConnected.nonempty {k : ℕ} (h : G.IsKConnected k) : Nonempty V := by
+  rcases h.1 with ⟨X, hX⟩
+  have: X ≠ ∅ := by
+    intro rfl
+    rw[Set.ncard_empty] at hX
+    contradiction
+  obtain ⟨x⟩ := Set.nonempty_iff_empty_ne.2 this.symm
+  use x
 
 lemma IsKConnected.Connected {k : ℕ} (h : G.IsKConnected k) (hk : k > 0) : G.Connected := by
   have preconnected: G.Preconnected := by
@@ -247,59 +256,88 @@ lemma IsKConnected.Connected {k : ℕ} (h : G.IsKConnected k) (hk : k > 0) : G.C
     intro p'
     apply h'
     use p'
+  let nonempty := h.nonempty
+  constructor
+  assumption
 
-  have nonempty: Nonempty V := by
-    rcases h.1 with ⟨X, hX⟩
-    sorry
-
-
-
-
-
-open Classical in
 lemma aux₀ [Fintype V] (e : G.Adj x y) (h_card : Fintype.card V > 4)
   (h_conn : G.IsKConnected 3)
   (h_sep : ¬((G.absorbInto x y).IsKConnected 3)) :
   ∃ z , G.IsSeparator {x, y, z} := by
+  classical
   dsimp[IsKConnected] at h_sep
   push_neg at h_sep
-  have absorb_card : Fintype.card {z // z ≠ y} > 3 := by
-    simp
-    sorry
+  have absorb_card : ∃ X : Set {x // x ≠ y}, X.ncard > 3 := by
+    use Set.univ
+    simp; omega
+
   rcases h_sep absorb_card with ⟨S, hS⟩
 
   have S_card: S.ncard = 2 := by
-    sorry
+    by_cases h' : S.ncard < 2
+    · have sep_ncard : ((Subtype.val '' S) ∪ {y}).ncard < 3 := by
+        apply lt_of_le_of_lt <| Set.ncard_union_le (Subtype.val '' S) {y}
+        rw[Set.ncard_image_of_injective _ Subtype.val_injective, Set.ncard_singleton]
+        omega
+      exfalso
+      apply h_conn.2
+      use (Subtype.val '' S) ∪ {y}
+      refine ⟨?_, sep_ncard, keep_sep e.ne hS.2.2⟩
+      rw[Set.finite_union]
+      exact ⟨Set.Finite.image Subtype.val hS.1, Set.finite_singleton y⟩
+    omega
 
-  have xinS: ⟨x, e.ne⟩ ∈ S := sorry
+  have xinS: ⟨x, e.ne⟩ ∈ S := by
+    by_contra! hx
+    have: x ∉ Subtype.val '' S := by simp[hx]
+    exfalso
+    apply h_conn.2
+    use Subtype.val '' S
+    refine ⟨Set.Finite.image Subtype.val hS.1, ?_, keep_sep_no_x e.ne hS.2.2 this⟩
+    rw[Set.ncard_image_of_injective _ Subtype.val_injective]
+    omega
 
   rcases Set.ncard_eq_two.1 S_card with ⟨a, b, hS'⟩
   wlog ha : a = x with H
+  · have wl: b ≠ a ∧ S = {b, a} := by
+      constructor
+      · symm; exact hS'.1
+      · rw[Set.pair_comm]
+        exact hS'.2
 
-  have wl: b ≠ a ∧ S = {b, a} := by
-    constructor
-    · symm; exact hS'.1
-    · rw[Set.pair_comm]
-      exact hS'.2
+    have beqx: ↑b = x := by
+      rw[hS'.2] at xinS
+      rcases xinS with rfl | rfl
+      · contradiction
+      · rfl
 
-  have beqx: ↑b = x := by
-    sorry
+    exact H e h_card h_conn h_sep absorb_card S hS S_card xinS b a wl beqx
 
-  exact H e h_card h_conn h_sep absorb_card S hS S_card xinS b a wl beqx
   use b
-  have: Subtype.val '' S ∪ {y} = {x, y, ↑b} := by sorry
-  rw[← this]
-  exact keep_sep e.ne hS.2
+  have: Subtype.val '' S ∪ {y} = {x, y, ↑b} := by grind
+  exact this ▸ keep_sep e.ne hS.2.2
+
+
+lemma exists_edge_of_connected_nontrivial [Nontrivial V]
+  (h : G.Connected) : ∃ u v : V, G.Adj u v := by
+  obtain ⟨u, v, h_neq⟩ := exists_pair_ne V
+  obtain ⟨p⟩ := h.preconnected u v
+  cases p with
+  | nil => contradiction
+  | cons h_adj _ =>
+    exact ⟨_, _, h_adj⟩
 
 
 
-
-lemma IsKConnected.exists_edge [Fintype V] {k : ℕ} (hk : k ≥ 1) (h : G.IsKConnected k) :
+lemma IsKConnected.exists_edge {k : ℕ} (hk : k ≥ 1) (h : G.IsKConnected k) :
   ∃ x y : V, G.Adj x y := by
-  by_contra!
-  sorry
-
-
+  have: Nontrivial V := by
+    obtain ⟨X, hX⟩ := h.1
+    have: X.ncard > 1 := by omega
+    obtain ⟨x⟩ := h.nonempty
+    obtain ⟨b, hb⟩ := Set.exists_ne_of_one_lt_ncard this x
+    exact ⟨x, b, hb.2.symm⟩
+  exact exists_edge_of_connected_nontrivial (h.Connected (by omega))
 
 
 noncomputable
@@ -310,39 +348,48 @@ lemma exists_min_comp_card [Nonempty V] [Fintype V] :
   apply Finite.exists_min
 
 noncomputable
-def score_sep [Fintype V] {z : V} (e : G.Adj x y)
-  (h_sep : G.IsSeparator {x,y,z}) (h_card : Fintype.card V > 4) : ℕ := by
+def score_sep [Fintype V] (x y z : V) (h_card : Fintype.card V > 4) : ℕ := by
   classical
-  have c_nonempty: Nonempty ({x,y,z}ᶜ : Set V) := sorry
+  have c_nonempty: Nonempty ({x,y,z}ᶜ : Set V) := by
+     rw[Set.nonempty_coe_sort, Set.nonempty_iff_empty_ne]
+     intro h
+     have univ: {x,y,z} = (Set.univ : Set V) := Set.compl_empty_iff.1 h.symm
+     have univ_card : ({x,y,z} : Set V).ncard ≤ 3:= by
+        linarith [Set.ncard_insert_le x {y, z}, Set.ncard_insert_le y {z}, Set.ncard_singleton z]
+     rw[Fintype.card_eq_nat_card, ← Set.ncard_univ, ← univ] at h_card
+     omega
   let min_comp := ((G.induce {x,y,z}ᶜ).exists_min_comp_card).choose
   exact min_comp.supp.ncard
 
-lemma score_sep_min [Fintype V] (e : G.Adj x y) (h_card : Fintype.card V > 4)
-  (h_exists : ∃ z, G.IsSeparator {x, y, z}) :
-  ∃ (z : V) (h_z : G.IsSeparator {x, y, z}),
-    ∀ (z' : V) (h_z' : G.IsSeparator {x, y, z'}),
-    score_sep e h_z h_card ≤ score_sep e h_z' h_card := by
+lemma score_sep_min [Fintype V] (h_card : Fintype.card V > 4)
+  (h_exists : ∃ x y z, G.Adj x y ∧ G.IsSeparator {x, y, z}) :
+  ∃ (x y z : V), G.Adj x y ∧ G.IsSeparator {x, y, z} ∧
+  ∀ (x' y' z' : V), G.Adj x' y' ∧ G.IsSeparator {x', y', z'} →
+    G.score_sep x y z h_card ≤ G.score_sep x' y' z' h_card := by
   classical
-  let P := fun (n : ℕ) ↦ ∃ (z : V) (hz : G.IsSeparator {x,y,z}), score_sep e hz h_card = n
+  let P := fun (n : ℕ) ↦ ∃ (x y z : V)
+                            (e : G.Adj x y)
+                            (hz : G.IsSeparator {x,y,z}) , G.score_sep x y z h_card = n
 
   have hP_exists : ∃ n, P n := by
-    obtain ⟨z_val, hz_val⟩ := h_exists
-    exact ⟨score_sep e hz_val h_card, ⟨z_val, hz_val, rfl⟩⟩
-  rcases Nat.find_spec hP_exists with ⟨z, ⟨hz₀, hz₁⟩⟩
-  use z
-  use hz₀
-  intro z' hz'
-  rw[hz₁]
+    obtain ⟨x, y, z, ⟨e, hz⟩⟩ := h_exists
+    refine ⟨G.score_sep x y z h_card, ⟨x,y,z,e,hz,rfl⟩⟩
+  rcases Nat.find_spec hP_exists with ⟨x,y,z, ⟨h₀,h₁,h₂⟩⟩
+  refine ⟨x, y, z, h₀, h₁, ?_⟩
+  intro x' y' z' h'
+  rw[h₂]
   apply Nat.find_min'
-  use z'
-  use hz'
-
-
+  use x', y', z', h'.1, h'.2
 
 open Classical in
 lemma aux_main [Fintype V] (h : G.IsKConnected 3) (h_card : Fintype.card V > 4) :
   ∃ x y : V, G.Adj x y ∧ (G.absorbInto x y).IsKConnected 3 := by
   by_contra! no_edge
+  obtain ⟨x, y, xy⟩ := h.exists_edge (by decide)
+  let not_conn := no_edge x y xy
+  obtain ⟨z, hz⟩ := aux₀ xy h_card h not_conn
+  obtain ⟨x, y, z, xy, h_sep, h_min⟩ := G.score_sep_min h_card (by refine ⟨x, y, z, xy, hz⟩)
   sorry
+
 
 end SimpleGraph
