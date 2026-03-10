@@ -32,6 +32,18 @@ def absorbInto (G : SimpleGraph V) (x y : V) : SimpleGraph {z // z ≠ y} where
   symm a b h := by tauto
   loopless a := by tauto
 
+
+lemma IsSeparator.not_connected {X : Set V} (h : G.IsSeparator X) :
+  ¬(G.induce Xᶜ).Connected := by
+  intro h_conn
+  rcases h with ⟨x, y, h⟩
+  obtain ⟨p⟩ := h_conn.preconnected ⟨x, h.2.1⟩ ⟨y, h.2.2⟩
+  rcases h.1 <| p.map (Embedding.induce Xᶜ).toHom with ⟨v, ⟨hv₀, hv₁⟩⟩
+  obtain ⟨v', ⟨_, rfl⟩⟩ := List.mem_map.1 <| Walk.support_map (Embedding.induce Xᶜ).toHom p ▸ hv₁
+  exact v'.property hv₀
+
+
+
 lemma sub_walker {x z : V} (p : G.Path x z) (h_ne : x ≠ z) (adj_ne : ¬G.Adj x z) :
   ∃ y : V, ∃ p' : G.Walk y z, x ∉ p'.support ∧ p'.support ⊆ p.val.support ∧ G.Adj x y := by
   classical
@@ -62,9 +74,7 @@ lemma proj_adj (e : G.Adj v w) (h : x ≠ y) :
     right
     exact e.symm
 
-lemma proj_prop (h : x ≠ y) (hv : v ≠ y) :
-  proj v h = v := by simp[proj, hv]
-
+lemma proj_prop (h : x ≠ y) (hv : v ≠ y) : proj v h = v := by simp[proj, hv]
 
 lemma proj_val (v : {z // z ≠ y}) (h : x ≠ y) : proj (↑v) h = v := by simp[v.property, proj]
 
@@ -193,7 +203,7 @@ lemma keep_sep {X : Set {z // z ≠ y}} (h : x ≠ y) (hX : (G.absorbInto x y).I
   simp[h'.2, Set.mem_image, Subtype.val_inj, v.property, w.property]
 
 
-lemma IsMinimalSeperator.adj_comp [Fintype V] {X : Set V} (h : G.IsMinimumSeparator X) :
+lemma IsMinimumSeparator.adj_comp [Fintype V] {X : Set V} (h : G.IsMinimumSeparator X) :
   ∀ C : (G.induce Xᶜ).ConnectedComponent, ∀ x ∈ X, ∃ c ∈ C, G.Adj x c := by
   classical
   by_contra! h'
@@ -232,8 +242,9 @@ lemma IsMinimalSeperator.adj_comp [Fintype V] {X : Set V} (h : G.IsMinimumSepara
       have: y ∈ Subtype.val '' C.supp := by use ⟨y, p'_avoids_X _ p'.start_mem_support⟩
       contradiction
     exact C.isClosed_supp <| exists_crossing_edge hC' this p''.reachable.symm
-  sorry
-  --linarith[h.2 (X \ {x}) X_sep, Set.ncard_diff_singleton_lt_of_mem hx]
+  have: (X \ {x}).Finite := Set.Finite.diff h.1
+
+  linarith[h.2.2 (X \ {x}) ⟨this, X_sep⟩, Set.ncard_diff_singleton_lt_of_mem hx]
 
 
 lemma IsKConnected.nonempty {k : ℕ} (h : G.IsKConnected k) : Nonempty V := by
@@ -256,7 +267,7 @@ lemma IsKConnected.Connected {k : ℕ} (h : G.IsKConnected k) (hk : k > 0) : G.C
     intro p'
     apply h'
     use p'
-  let nonempty := h.nonempty
+  let := h.nonempty
   constructor
   assumption
 
@@ -347,19 +358,47 @@ lemma exists_min_comp_card [Nonempty V] [Fintype V] :
   ∃ C : G.ConnectedComponent, ∀ C' : G.ConnectedComponent, score_comp C ≤ score_comp C' := by
   apply Finite.exists_min
 
+
+lemma three_compl_nonempty [Fintype V] (x y z : V) (h_card : Fintype.card V > 4) :
+  Nonempty ({x,y,z}ᶜ : Set V) := by
+  rw[Set.nonempty_coe_sort, Set.nonempty_iff_empty_ne]
+  intro h
+  have univ: {x,y,z} = (Set.univ : Set V) := Set.compl_empty_iff.1 h.symm
+  have univ_card : ({x,y,z} : Set V).ncard ≤ 3:= by
+    linarith [Set.ncard_insert_le x {y, z}, Set.ncard_insert_le y {z}, Set.ncard_singleton z]
+  rw[Fintype.card_eq_nat_card, ← Set.ncard_univ, ← univ] at h_card
+  omega
+
+noncomputable
+def score_sep' [Fintype V] (x y z : V) (h_card : Fintype.card V > 4) :
+  (G.induce {x,y,z}ᶜ).ConnectedComponent := by
+  classical
+  let nonempty := three_compl_nonempty x y z h_card
+  exact ((G.induce {x,y,z}ᶜ).exists_min_comp_card).choose
+
+
+lemma score_sep'_prop [Fintype V]
+  (x y z : V) (h_card : Fintype.card V > 4) (C : (G.induce {x,y,z}ᶜ).ConnectedComponent) :
+  (G.score_sep' x y z h_card).supp.ncard ≤ C.supp.ncard := by
+  classical
+  let nonempty := three_compl_nonempty x y z h_card
+  exact ((G.induce {x,y,z}ᶜ).exists_min_comp_card).choose_spec C
+
+
 noncomputable
 def score_sep [Fintype V] (x y z : V) (h_card : Fintype.card V > 4) : ℕ := by
   classical
-  have c_nonempty: Nonempty ({x,y,z}ᶜ : Set V) := by
-     rw[Set.nonempty_coe_sort, Set.nonempty_iff_empty_ne]
-     intro h
-     have univ: {x,y,z} = (Set.univ : Set V) := Set.compl_empty_iff.1 h.symm
-     have univ_card : ({x,y,z} : Set V).ncard ≤ 3:= by
-        linarith [Set.ncard_insert_le x {y, z}, Set.ncard_insert_le y {z}, Set.ncard_singleton z]
-     rw[Fintype.card_eq_nat_card, ← Set.ncard_univ, ← univ] at h_card
-     omega
+  let nonempty := three_compl_nonempty x y z h_card
   let min_comp := ((G.induce {x,y,z}ᶜ).exists_min_comp_card).choose
   exact min_comp.supp.ncard
+
+lemma score_sep_prop [Fintype V] (x y z : V) (h_card : Fintype.card V > 4) :
+  ∀ C : (G.induce {x,y,z}ᶜ).ConnectedComponent, G.score_sep x y z h_card ≤ C.supp.ncard := by
+  classical
+  intro C
+  have c_nonempty := three_compl_nonempty x y z h_card
+  exact ((G.induce {x,y,z}ᶜ).exists_min_comp_card).choose_spec C
+
 
 lemma score_sep_min [Fintype V] (h_card : Fintype.card V > 4)
   (h_exists : ∃ x y z, G.Adj x y ∧ G.IsSeparator {x, y, z}) :
@@ -381,15 +420,147 @@ lemma score_sep_min [Fintype V] (h_card : Fintype.card V > 4)
   apply Nat.find_min'
   use x', y', z', h'.1, h'.2
 
-open Classical in
+
+lemma score_sep_min' [Fintype V] (h_card : Fintype.card V > 4)
+  (h_exists : ∃ x y z, G.Adj x y ∧ G.IsSeparator {x, y, z}) :
+  ∃ (x y z : V), G.Adj x y ∧ G.IsSeparator {x, y, z} ∧
+  ∀ (x' y' z' : V), G.Adj x' y' ∧ G.IsSeparator {x', y', z'} →
+    (G.score_sep' x y z h_card).supp.ncard ≤ (G.score_sep' x' y' z' h_card).supp.ncard := by
+  classical
+  let P := fun (n : ℕ) ↦ ∃ (x y z : V)
+                            (e : G.Adj x y)
+                            (hz : G.IsSeparator {x,y,z}) ,
+                            (G.score_sep' x y z h_card).supp.ncard = n
+
+  have hP_exists : ∃ n, P n := by
+    obtain ⟨x, y, z, ⟨e, hz⟩⟩ := h_exists
+    refine ⟨G.score_sep x y z h_card, ⟨x,y,z,e,hz,rfl⟩⟩
+  rcases Nat.find_spec hP_exists with ⟨x,y,z, ⟨h₀,h₁,h₂⟩⟩
+  refine ⟨x, y, z, h₀, h₁, ?_⟩
+  intro x' y' z' h'
+  rw[h₂]
+  apply Nat.find_min'
+  use x', y', z', h'.1, h'.2
+
+
+
+lemma edge_exists_induced {S : Set V} (e : G.Adj x y) (hx : x ∈ S) (hy : y ∈ S) :
+  ∃ x' y', (G.induce S).Adj x' y' ∧ ↑x' = x ∧ ↑y' = y := by
+  use ⟨x, hx⟩, ⟨y, hy⟩
+  simpa
+
+lemma not_connected_exists_components [Nonempty V] (h : ¬G.Connected) :
+  ∃ C D : G.ConnectedComponent, C ≠ D := by
+  contrapose! h
+  rw[connected_iff_exists_forall_reachable]
+  obtain ⟨x⟩ := ‹Nonempty V›
+  use x
+  intro y
+  exact ConnectedComponent.eq.1 <| h (G.connectedComponentMk x) (G.connectedComponentMk y)
+
+
+lemma temp_subset_cc {S : Set V} (C : (G.induce S).ConnectedComponent) :
+  ∃ D : G.ConnectedComponent, ↑C.supp ⊆ D.supp := by
+  obtain ⟨x, hC⟩ := C.nonempty_supp
+  use G.connectedComponentMk ↑x
+  intro y_val ⟨y, hy⟩
+  rw[ConnectedComponent.mem_supp_iff, ConnectedComponent.eq, ← hy.2]
+  obtain ⟨p'⟩ := C.reachable_of_mem_supp hy.1 hC
+  use p'.map (Embedding.induce S).toHom
+
+lemma adj_exists_connectedComponent (e : G.Adj x y) :
+  ∃ C : G.ConnectedComponent, x ∈ C.supp ∧ y ∈ C.supp := by
+  use G.connectedComponentMk x
+  constructor
+  · exact ConnectedComponent.connectedComponentMk_mem
+  · rw[← ConnectedComponent.connectedComponentMk_eq_of_adj e.symm]
+    exact ConnectedComponent.connectedComponentMk_mem
+
+
 lemma aux_main [Fintype V] (h : G.IsKConnected 3) (h_card : Fintype.card V > 4) :
   ∃ x y : V, G.Adj x y ∧ (G.absorbInto x y).IsKConnected 3 := by
+  classical
   by_contra! no_edge
-  obtain ⟨x, y, xy⟩ := h.exists_edge (by decide)
-  let not_conn := no_edge x y xy
-  obtain ⟨z, hz⟩ := aux₀ xy h_card h not_conn
-  obtain ⟨x, y, z, xy, h_sep, h_min⟩ := G.score_sep_min h_card (by refine ⟨x, y, z, xy, hz⟩)
-  sorry
+  obtain ⟨x₀, y₀, xy₀⟩ := h.exists_edge (by decide)
+  let not_conn_xy := no_edge x₀ y₀ xy₀
+  obtain ⟨z₀, hz⟩ := aux₀ xy₀ h_card h not_conn_xy
+  obtain ⟨x, y, z, xy, h_sep, h_min⟩ := G.score_sep_min' h_card (by refine ⟨x₀, y₀, z₀, xy₀, hz⟩)
+
+
+  have h_sep_min: G.IsMinimumSeparator {x,y,z} := by
+    sorry
+
+  obtain ⟨v, hv⟩ := h_sep_min.adj_comp (score_sep' x y z h_card) z (by simp)
+  let not_conn_zv := no_edge z v hv.2
+  obtain ⟨w, h_zv_sep⟩ := aux₀ hv.2 h_card h not_conn_zv
+  have nonempty_compl := three_compl_nonempty z ↑v w h_card
+
+  obtain ⟨C, D, h_ne⟩ := not_connected_exists_components h_zv_sep.not_connected
+
+  wlog hD: x ∉ (↑D.supp : Set V) ∧ y ∉ (↑D.supp : Set V) generalizing C D with H
+  let CD_disjoint := (G.induce {z, ↑v, w}ᶜ).pairwise_disjoint_supp_connectedComponent h_ne
+  dsimp at CD_disjoint
+  · have: x ∉ (↑C.supp : Set V) ∧ y ∉ (↑C.supp : Set V) := by
+      push_neg at hD
+      by_cases hi : x ∈ ({z, ↑v, w}ᶜ : Set V) ∧ y ∈ ({z, ↑v, w}ᶜ : Set V)
+      · obtain ⟨x', y', e', hx, hy⟩ := edge_exists_induced xy hi.1 hi.2
+        by_cases hx' : x' ∈ D.supp
+        · let yD := D.mem_supp_of_adj_mem_supp hx' e'
+          constructor
+          · intro h'
+            apply CD_disjoint.notMem_of_mem_right hx'
+            rwa[← Function.Injective.mem_set_image Subtype.val_injective, hx]
+          · intro h'
+            apply CD_disjoint.notMem_of_mem_right yD
+            rwa[← Function.Injective.mem_set_image Subtype.val_injective, hy]
+        · have xnD: x ∉ Subtype.val '' D.supp := by
+            intro
+            apply hx'
+            rwa[← Function.Injective.mem_set_image Subtype.val_injective, hx]
+          have xD: x ∈ Subtype.val '' D.supp := by
+            have: y' ∈ D.supp := by
+              rw[← Function.Injective.mem_set_image Subtype.val_injective, hy]
+              exact hD xnD
+            refine ⟨x', ⟨D.mem_supp_of_adj_mem_supp this e'.symm, hx⟩⟩
+          contradiction
+      · push_neg at hi
+        by_cases hx: x ∈ ({z, ↑v, w}ᶜ : Set V)
+        · by_cases hx' : ⟨x, hx⟩ ∈ D.supp
+          · have: x ∈ Subtype.val '' D.supp := by
+              use ⟨x, hx⟩
+            let xnC := CD_disjoint.notMem_of_mem_right hx'
+            constructor
+            · intro
+              apply xnC
+              rwa[← Function.Injective.mem_set_image Subtype.val_injective]
+            · intro ⟨y', hy'⟩
+              apply hi hx
+              let := hy'.2 ▸ y'.property
+              exact this
+          · have: x ∉ Subtype.val '' D.supp := by
+              intro
+              apply hx'
+              rwa[← Function.Injective.mem_set_image Subtype.val_injective]
+            let := hD this
+            sorry
+
+
+    exact H D C h_ne.symm this
+
+  have h_sep_min_zv : G.IsMinimumSeparator {z, ↑v, w} := sorry
+
+  obtain ⟨d, vd⟩ := h_sep_min_zv.adj_comp D v (by simp)
+
+  have dscore: ↑d ∈ Subtype.val '' (G.score_sep' x y z h_card).supp := sorry
+
+  have Dss: ↑D.supp ⊆ Subtype.val '' (G.score_sep' x y z h_card).supp := sorry
+
+  have: D.supp.ncard < (G.score_sep' x y z h_card).supp.ncard := by
+    sorry
+
+  linarith[(G.score_sep'_prop z ↑v w h_card D),
+          h_min z ↑v w (by exact ⟨hv.2, h_zv_sep⟩)]
+
 
 
 end SimpleGraph
