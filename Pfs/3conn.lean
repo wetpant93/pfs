@@ -739,7 +739,7 @@ lemma is_three_connected_tutte [Fintype V] (h : G.IsVertexConnected 3) : TutteCo
   exact is_three_connected_tutte_helper m V G (by linarith[hm]) h
 
 
-theorem wheel_theorem [Fintype V] : G.IsVertexConnected 3 ↔ TutteConstructable G :=
+theorem thm_325 [Fintype V] : G.IsVertexConnected 3 ↔ TutteConstructable G :=
     Iff.intro is_three_connected_tutte TutteConstructable.is_three_connected
 
 
