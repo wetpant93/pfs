@@ -29,15 +29,35 @@ lemma IsVertexConnected.Connected {k : ℕ} (h : G.IsVertexConnected k) (hk : k 
     intro x y
     by_contra! h'
     apply h.2
-    use ∅
-    simp[hk, IsSeparator, IsVertexSeparator]
-    refine ⟨x, y, ?_⟩
-    intro p'
-    apply h'
-    use p'
-  let := h.nonempty
-  constructor
-  assumption
+    refine ⟨∅, (∅ : Set V).toFinite, by linarith[Set.ncard_empty V], IsSeparator.empty_sep h'⟩
+
+  have := h.nonempty
+  exact ⟨preconnected⟩
+
+
+lemma exists_edge_of_connected_nontrivial [Nontrivial V]
+  (h : G.Connected) : ∃ u v : V, G.Adj u v := by
+  obtain ⟨u, v, h_neq⟩ := exists_pair_ne V
+  obtain ⟨p⟩ := h.preconnected u v
+  cases p with
+  | nil => contradiction
+  | cons h_adj _ => exact ⟨_, _, h_adj⟩
+
+lemma IsVertexConnected.card {k : ℕ} [Fintype V] (h : G.IsVertexConnected k) :
+  Fintype.card V > k:= by
+  obtain ⟨X, _⟩ := h.1
+  rw[Fintype.card_eq_nat_card, ← Set.ncard_univ]
+  linarith[Set.ncard_le_ncard (Set.subset_univ X)]
+
+lemma IsVertexConnected.exists_edge {k : ℕ} (hk : k ≥ 1) (h : G.IsVertexConnected k) :
+  ∃ x y : V, G.Adj x y := by
+  have: Nontrivial V := by
+    obtain ⟨X, hX⟩ := h.1
+    have: X.ncard > 1 := by omega
+    obtain ⟨x⟩ := h.nonempty
+    obtain ⟨b, hb⟩ := Set.exists_ne_of_one_lt_ncard this x
+    exact ⟨x, b, hb.2.symm⟩
+  exact exists_edge_of_connected_nontrivial (h.Connected (by omega))
 
 
 lemma IsVertexConnected.iso {k : ℕ} {G' : SimpleGraph W} (h : G.IsVertexConnected k) (ψ : G ≃g G') :
@@ -121,5 +141,14 @@ lemma IsVertexConnected.is_vertex_connected_completeGraph_of_ncard_eq {k : ℕ}
     · exact hxy.2.1 hs.1
     · exact hxy.2.2 hs.1
 
+lemma IsVertexConnected.is_minimum_separator_of_ncard_le [Fintype V] {k : ℕ} {X : Set V}
+  (h : G.IsVertexConnected k) (h_sep : G.IsSeparator X) (h_card : X.ncard ≤ k) :
+  G.IsMinimumSeparator X := by
+  refine ⟨h_sep, ?_⟩
+  by_contra hS
+  rcases not_forall.1 hS with ⟨S, hS⟩
+  push_neg at hS
+  apply h.2
+  refine ⟨S, S.toFinite , lt_of_lt_of_le hS.2 h_card, hS.1⟩
 
 end SimpleGraph

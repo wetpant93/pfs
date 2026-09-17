@@ -13,6 +13,8 @@ def IsVertexSeparator (G : SimpleGraph V) (S : Set V) (v w : V) : Prop :=
 def IsSeparator (G : SimpleGraph V) (S : Set V) : Prop :=
   ∃ x : V, ∃ y : V, G.IsVertexSeparator S x y
 
+def IsMinimumSeparator [Fintype V] (G : SimpleGraph V) (X : Set V) : Prop :=
+  G.IsSeparator X ∧ ∀ S, G.IsSeparator S → X.ncard ≤ S.ncard
 
 lemma IsVertexSeparator.toSeparator (h : G.IsVertexSeparator S v w) : G.IsSeparator S := ⟨v, w, h⟩
 
@@ -29,6 +31,8 @@ lemma IsVertexSeparator.ne (h : G.IsVertexSeparator S x y) : x ≠ y := by
   simp only [Walk.support_nil, List.mem_singleton, exists_eq_right] at hp'
   contradiction
 
+lemma IsSeparator.empty_sep {v w : V} (h : ¬G.Reachable v w) : G.IsSeparator ∅ := by
+  refine ⟨v, w, ⟨fun p => False.elim <| h ⟨p⟩, by simp⟩⟩
 
 lemma IsSeparator.image_iso (h : G.IsSeparator S) (ψ : G ≃g G') : G'.IsSeparator (ψ '' S) := by
   obtain ⟨x, y, hxy⟩ := h
@@ -81,11 +85,43 @@ lemma IsVertexSeparator.fromAdj (e : G.Adj v u) (h : G.IsVertexSeparator S v w) 
     use s
     refine ⟨hs.1, ?_⟩
     obtain (rfl | h₀) := p'.mem_support_iff.1 hs.2
-    · exfalso
-      exact h.2.1 hs.1
-    exact h₀
+    · exact False.elim <| h.2.1 hs.1
+    · exact h₀
   exact ⟨hu, h.2.2⟩
 
+
+lemma IsMinimumSeparator.adj_comp [Fintype V] {X : Set V}
+  (h : G.IsMinimumSeparator X) (C : (G.induce Xᶜ).ConnectedComponent) (x : V) (hx : x ∈ X) :
+  ∃ c ∈ C.supp, G.Adj x c := by
+  classical
+  by_contra! h'
+  have h_sep: G.IsSeparator (X \ {x}) := by
+      obtain ⟨c, hc⟩ := C.nonempty_supp
+      have: ↑c ∉ X := c.property
+      refine ⟨x, c, ?_, ⟨by simp, by simp[this]⟩⟩
+      intro p
+      let p' := p.toPath
+      have support_subset: (p'.val).support ⊆ p.support := Walk.support_toPath_subset p
+      obtain ⟨p_path, hp⟩ := p'
+      cases p_path with
+        | nil => exact False.elim (c.property hx)
+        | cons e p_path =>
+          by_contra! sne
+          obtain ⟨_, xne⟩ := (Walk.cons_isPath_iff _ _).1 hp
+          have p_ne: ∀ v ∈ p_path.support, v ∈ Xᶜ := by
+            intro v vp vx
+            by_cases veq : v = x
+            · exact veq ▸ xne <| vp
+            · have: v ∈ (Walk.cons e p_path).support := by
+                rw[Walk.support_cons, List.mem_cons]
+                exact Or.inr vp
+              exact sne v ⟨vx, veq⟩ <| support_subset this
+          rw[ConnectedComponent.mem_supp_iff,
+             ← ConnectedComponent.sound (p_path.induce _ p_ne).reachable,
+             ← ConnectedComponent.mem_supp_iff] at hc
+          exact h' _ hc <| e
+
+  linarith[h.2 (X \ {x}) h_sep, Set.ncard_diff_singleton_lt_of_mem hx]
 
 
 end SimpleGraph

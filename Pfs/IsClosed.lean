@@ -6,6 +6,7 @@ variable {V : Type*} {G : SimpleGraph V} {S T : Set V} {v w : V}
 
 namespace SimpleGraph
 
+
 lemma exists_crossing_edge {v w : V}
   {X : Set V} (h₀ : v ∈ X) (h₁ : w ∉ X) (h : G.Reachable v w) : ∃ x ∈ X, ∃ y ∈ Xᶜ, G.Adj x y := by
   rcases h with ⟨p⟩
@@ -16,7 +17,6 @@ lemma exists_crossing_edge {v w : V}
      · exact ih h h₁
      · exact ⟨u, h₀, x, h, ux⟩
 
-
 def IsClosed (G : SimpleGraph V) (S : Set V) : Prop :=
     ¬∃ x ∈ S, ∃y ∈ Sᶜ, G.Adj x y
 
@@ -25,7 +25,7 @@ lemma IsClosed.compl (h : G.IsClosed S) : G.IsClosed Sᶜ := by
     rintro ⟨x, hx, y, hy, xy⟩
     have: S = Sᶜᶜ := by simp
     rw[← this] at hy
-    exact h ⟨y, hy, x, hx, G.adj_symm xy⟩
+    exact h ⟨y, hy, x, hx, xy.symm⟩
 
 
 lemma IsClosed.union (h₀ : G.IsClosed S) (h₁ : G.IsClosed T) : G.IsClosed (S ∪ T) := by
@@ -80,6 +80,17 @@ lemma IsClosed.mem_of_reachable
   by_contra! wns
   exact h₀ <| exists_crossing_edge vs wns h₁
 
+lemma IsClosed.walk_contained (vs : v ∈ S) (h₀ : G.IsClosed S) (p : G.Walk v w) :
+  ∀ a ∈ p.support, a ∈ S := by
+  by_contra! h
+  classical
+  rcases h with ⟨a, ⟨ap, as⟩⟩
+  exact h₀ <| exists_crossing_edge vs as ⟨p.takeUntil _ ap⟩
+
+lemma IsClosed.reachable_induce' (vs : v ∈ S) (h₀ : G.IsClosed S) (p : G.Walk v w) :
+  ∃(ws : w ∈ S), (G.induce S).Reachable ⟨v, vs⟩ ⟨w, ws⟩ := by
+  have mem_supp := h₀.walk_contained vs p
+  refine ⟨mem_supp _ (p.end_mem_support), ⟨p.induce _ mem_supp⟩⟩
 
 lemma IsClosed.reachable_induce (vs : v ∈ S) (h₀ : G.IsClosed S) (h₁ : G.Reachable v w) :
   ∃(ws : w ∈ S), (G.induce S).Reachable ⟨v, vs⟩ ⟨w, ws⟩ := by
