@@ -1,7 +1,6 @@
 import Mathlib.Tactic
 import Mathlib.Combinatorics.SimpleGraph.Basic
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.Connected
-import Pfs.IsClosed
 import Pfs.IsSeparator
 import Pfs.IsVertexConnected
 
@@ -426,7 +425,11 @@ lemma aux_main [Fintype V] (h : G.IsVertexConnected 3) (h_card : Fintype.card V 
     obtain ⟨Dwalk⟩ := D.reachable_of_mem_supp vd.1 ha
     have walkssD: ∀ t ∈ Dwalk.support, t ∈ D.supp := by
       intro t ht
-      exact D.isClosed_supp.mem_of_reachable vd.1 (Walk.takeUntil Dwalk t ht).reachable
+      let pt := Dwalk.takeUntil t ht
+      rw[ConnectedComponent.mem_supp_iff,
+        ← ConnectedComponent.sound ⟨pt⟩,
+        ← ConnectedComponent.mem_supp_iff]
+      exact vd.1
 
     let Gwalk := Dwalk.map (Embedding.induce _).toHom
     have: ∀ t ∈ Gwalk.support, t ∈ ({x,y,z}ᶜ : Set V) := by
