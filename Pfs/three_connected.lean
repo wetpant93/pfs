@@ -132,7 +132,7 @@ lemma Adj.image_proj_separates_walks {u v : V} (e : G.Adj x y) (hu : u ≠ y) (h
   exact ⟨e.proj s, Set.mem_image_of_mem _ hS, p'_support _ hp'⟩
 
 
-lemma IsVertexSeparator.image_proj (e : G.Adj x y)
+lemma IsVertexSeparator.image_proj_not_mem (e : G.Adj x y)
   (h : G.IsVertexSeparator S v x) (hy : y ∉ S) (hv : v ≠ y) :
   (G / e).IsVertexSeparator (e.proj '' S) (e.proj v) (e.proj x) := by
   have vnex := h.ne
@@ -145,7 +145,7 @@ lemma IsVertexSeparator.image_proj (e : G.Adj x y)
     exact hy as
   rwa[← e.proj_of_ne e.ne, ← ha, e.proj_of_ne aney]
 
-lemma IsVertexSeparator.liftSeparator (e : G.Adj x y)
+lemma IsVertexSeparator.image_proj_ne (e : G.Adj x y)
   (hv : v ≠ x ∧ v ≠ y) (hw : w ≠ x ∧ w ≠ y) (h : G.IsVertexSeparator S v w) :
   (G / e).IsVertexSeparator (e.proj '' S) (e.proj v) (e.proj w) := by
   refine ⟨e.image_proj_separates_walks hv.2 hw.2 h.1,
@@ -303,16 +303,8 @@ lemma exists_edge_induced {S : Set V} (e : G.Adj x y) (hx : x ∈ S) (hy : y ∈
   use ⟨x, hx⟩, ⟨y, hy⟩
   simpa
 
-lemma not_connected_exists_components' [non : Nonempty V] (h : ¬G.Connected) :
-  ∃ C D : G.ConnectedComponent, C ≠ D := by
-  have h_pre : ¬G.Preconnected := fun hP => h (G.connected_iff.2 ⟨hP, non⟩)
-  rw [Preconnected] at h_pre
-  push_neg at h_pre
-  obtain ⟨u, v, huv⟩ := h_pre
-  refine ⟨G.connectedComponentMk u, G.connectedComponentMk v,
-    fun reach => huv <| ConnectedComponent.eq.1 reach⟩
 
-lemma not_connected_exists_components [Nonempty V] (h : ¬G.Connected) :
+lemma not_conn_exists_comps [Nonempty V] (h : ¬G.Connected) :
   ∃ C D : G.ConnectedComponent, C ≠ D := by
   contrapose! h
   rw[connected_iff_exists_forall_reachable]
@@ -324,15 +316,15 @@ lemma not_connected_exists_components [Nonempty V] (h : ¬G.Connected) :
 
 lemma not_conn_comp_ne [Nonempty V] (h : ¬G.Connected) (C : G.ConnectedComponent) :
   ∃ D, C ≠ D := by
-  obtain ⟨C₀, C₁, h⟩ := not_connected_exists_components h
+  obtain ⟨C₀, C₁, h⟩ := not_conn_exists_comps h
   by_cases h_eq : C = C₀
   · use C₁
     rwa[h_eq]
   · use C₀
 
-lemma not_conn_exists_comp' (x : V) (hC : ¬(G.induce S).Connected) (hS : Nonempty S) :
+lemma ind_not_conn_exists_comp (x : V) (hC : ¬(G.induce S).Connected) (hS : Nonempty S) :
   ∃ C : (G.induce S).ConnectedComponent, x ∉ Subtype.val '' C.supp := by
-  obtain ⟨C, D, h_ne⟩ := not_connected_exists_components hC
+  obtain ⟨C, D, h_ne⟩ := not_conn_exists_comps hC
   by_cases hx : x ∈ (↑) '' C.supp
   · use D
     obtain ⟨x, ⟨hx, rfl⟩⟩ := hx
@@ -340,27 +332,11 @@ lemma not_conn_exists_comp' (x : V) (hC : ¬(G.induce S).Connected) (hS : Nonemp
     exact ((G.induce S).pairwise_disjoint_supp_connectedComponent h_ne).notMem_of_mem_left hx
   use C
 
-lemma not_connected_exists_free [Nonempty V] (x : V) (h : ¬G.Connected) :
-  ∃ C : G.ConnectedComponent, x ∉ C.supp := by
-  obtain ⟨C, D, h_ne⟩ := not_connected_exists_components h
-  by_cases hx : x ∈ C.supp
-  · use D
-    obtain ⟨x, hx⟩ := hx
-    assumption
-  use C
 
-
-lemma not_connected_exist_free_edge [Nonempty V] (e : G.Adj x y) (h : ¬G.Connected) :
- ∃ C : G.ConnectedComponent, x ∉ C.supp ∧ y ∉ C.supp := by
- obtain ⟨C, hCx⟩ := not_connected_exists_free x h
- refine ⟨C, hCx, fun yC ↦ False.elim (hCx <| C.mem_supp_of_adj_mem_supp yC e.symm)⟩
-
-
-
-lemma not_conn_exist_comp {S : Set V}
+lemma ind_not_conn_edge_free_comp {S : Set V}
   (e : G.Adj x y) (hC : ¬(G.induce S).Connected) (hS : Nonempty S) :
   ∃ C : (G.induce S).ConnectedComponent, x ∉ Subtype.val '' C.supp ∧ y ∉ Subtype.val '' C.supp := by
-  obtain ⟨C, hCx⟩ := not_conn_exists_comp' x hC hS
+  obtain ⟨C, hCx⟩ := ind_not_conn_exists_comp x hC hS
   by_cases hCy : y ∈ Subtype.val '' C.supp
   · obtain ⟨D, h_ne⟩ := not_conn_comp_ne hC C
     refine ⟨D, ?_, ?_⟩
@@ -395,7 +371,7 @@ lemma aux_main [Fintype V] (h : G.IsVertexConnected 3) (h_card : Fintype.card V 
   obtain ⟨w, h_zv_sep⟩ := aux₀ hv.2 h_card h not_conn_zv
   have nonempty_compl := three_compl_nonempty z ↑v w h_card
 
-  obtain ⟨D, hD⟩ := not_conn_exist_comp xy h_zv_sep.not_connected nonempty_compl
+  obtain ⟨D, hD⟩ := ind_not_conn_edge_free_comp xy h_zv_sep.not_connected nonempty_compl
 
   have h_sep_min_zv : G.IsMinimumSeparator {z, ↑v, w} :=
     IsVertexConnected.is_minimum_separator_of_ncard_le h h_zv_sep Set.three_le_ncard
@@ -461,7 +437,7 @@ lemma IsSeparator.image_proj (e : G.Adj x y) (hS : x ∉ S ∧ y ∉ S) (h : G.I
   (G / e).IsSeparator (e.proj '' S) := by
   have nonempty: Nonempty ↑Sᶜ := h.compl_nonempty
   let not_conn := h.not_connected
-  obtain ⟨C, hC⟩ := not_conn_exist_comp e not_conn nonempty
+  obtain ⟨C, hC⟩ := ind_not_conn_edge_free_comp e not_conn nonempty
   obtain ⟨D, h_ne⟩ := not_conn_comp_ne not_conn C
   obtain ⟨v, vC⟩ := C.nonempty_supp
   obtain ⟨w, wD⟩ := D.nonempty_supp
@@ -469,10 +445,10 @@ lemma IsSeparator.image_proj (e : G.Adj x y) (hS : x ∉ S ∧ y ∉ S) (h : G.I
   have v_ne: v ≠ x ∧ v ≠ y := by grind
   by_cases hw : ↑w = y
   · let xv_sep := vw_sep.symm.fromAdj (hw ▸ e.symm) hS.1
-    exact (IsVertexSeparator.image_proj e xv_sep.symm hS.2 v_ne.2).toSeparator
+    exact (IsVertexSeparator.image_proj_not_mem e xv_sep.symm hS.2 v_ne.2).toSeparator
   · by_cases weq : ↑w = x
-    · exact (IsVertexSeparator.image_proj e (weq ▸ vw_sep) hS.2 v_ne.2).toSeparator
-    · exact (vw_sep.liftSeparator e ⟨v_ne.1, v_ne.2⟩ ⟨weq, hw⟩).toSeparator
+    · exact (IsVertexSeparator.image_proj_not_mem e (weq ▸ vw_sep) hS.2 v_ne.2).toSeparator
+    · exact (vw_sep.image_proj_ne e ⟨v_ne.1, v_ne.2⟩ ⟨weq, hw⟩).toSeparator
 
 
 open Classical in
@@ -503,9 +479,9 @@ lemma TutteConstructable.is_three_connected [Fintype V]
   induction h with
     | k4 G k4_iso =>
       obtain ⟨ψ⟩ := k4_iso
-      have: (completeGraph (Fin 4)).IsVertexConnected (4 - 1)
-        := IsVertexConnected.is_vertex_connected_completeGraph_of_ncard_eq (by simp) (by decide)
-      exact IsVertexConnected.iso this ψ.symm
+      have k4_3conn: (completeGraph (Fin 4)).IsVertexConnected (4 - 1)
+        := IsVertexConnected.ncard_completeGraph (by simp) (by simp)
+      exact IsVertexConnected.iso k4_3conn ψ.symm
 
     | step G G' x y e h_deg_x h_deg_y h_iso hG' ih =>
       obtain ⟨ψ⟩ := h_iso
@@ -524,7 +500,7 @@ lemma TutteConstructable.is_three_connected [Fintype V]
       have not_conn: ¬(G.induce Sᶜ).Connected := IsSeparator.not_connected hS.2.2
       have nonempty: Nonempty ↑Sᶜ := hS.2.2.compl_nonempty
 
-      obtain ⟨C, hC⟩ := not_conn_exist_comp e not_conn nonempty
+      obtain ⟨C, hC⟩ := ind_not_conn_edge_free_comp e not_conn nonempty
       obtain ⟨D, h_ne⟩ := not_conn_comp_ne not_conn C
       obtain ⟨v, vC⟩ := C.nonempty_supp
       obtain ⟨w, wD⟩ := D.nonempty_supp
@@ -534,7 +510,7 @@ lemma TutteConstructable.is_three_connected [Fintype V]
       refine ⟨(e.proj '' S), Set.Finite.image e.proj S.toFinite,
               by linarith[Set.ncard_image_le (f := e.proj) S.toFinite], ?_⟩
       by_cases w_ne: w ≠ x ∧ w ≠ y
-      · exact (vw_sep.liftSeparator e v_ne w_ne).toSeparator
+      · exact (vw_sep.image_proj_ne e v_ne w_ne).toSeparator
       simp only [not_and_or, not_ne_iff] at w_ne
       have: S.ncard < 3 := by linarith
       rcases w_ne with rfl | rfl
@@ -542,14 +518,14 @@ lemma TutteConstructable.is_three_connected [Fintype V]
         · obtain ⟨u, hu⟩ := has_neighbor_outside h_deg_x this
           have une : u ≠ y := by grind
           have uv_sep := (vw_sep.symm.fromAdj hu.1 hu.2)
-          exact (uv_sep.liftSeparator e ⟨Ne.symm hu.1.ne, une⟩ v_ne).toSeparator
+          exact (uv_sep.image_proj_ne e ⟨Ne.symm hu.1.ne, une⟩ v_ne).toSeparator
         · exact IsSeparator.image_proj e ⟨w.property, hy⟩ hS.2.2
 
       · by_cases hx : x ∈ S
         · obtain ⟨u, hu⟩ := has_neighbor_outside h_deg_y this
           have une : u ≠ x := by grind
           have uv_sep := (vw_sep.symm.fromAdj hu.1 hu.2)
-          exact (uv_sep.liftSeparator e ⟨une, Ne.symm hu.1.ne⟩ v_ne).toSeparator
+          exact (uv_sep.image_proj_ne e ⟨une, Ne.symm hu.1.ne⟩ v_ne).toSeparator
         · exact IsSeparator.image_proj e ⟨hx, w.property⟩ hS.2.2
 
 
@@ -563,8 +539,8 @@ private lemma is_three_connected_tutte_helper.{u} (m : ℕ) :
     apply TutteConstructable.k4 G
     rw[h_conn.eq_completeGraph_of_card_eq h_card]
     have h_eq : Fintype.card V = Fintype.card (Fin 4) := by simp[h_card]
-    let e : V ≃ Fin 4 := Fintype.equivOfCardEq h_eq
-    exact ⟨Iso.completeGraph e⟩
+    let equiv : V ≃ Fin 4 := Fintype.equivOfCardEq h_eq
+    exact ⟨Iso.completeGraph equiv⟩
 
   | succ k ih =>
     intro V _ G h_card h_conn
@@ -579,7 +555,7 @@ lemma is_three_connected_tutte [Fintype V] (h : G.IsVertexConnected 3) : TutteCo
   exact is_three_connected_tutte_helper m V G hm h
 
 
-theorem thm_325 [Fintype V] : G.IsVertexConnected 3 ↔ TutteConstructable G :=
+theorem tutte_3_connected [Fintype V] : G.IsVertexConnected 3 ↔ TutteConstructable G :=
     ⟨is_three_connected_tutte, TutteConstructable.is_three_connected⟩
 
 end

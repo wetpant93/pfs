@@ -245,13 +245,7 @@ lemma deficiency_remove_hall_violator_lt
     _ = d G S := rfl
 
 omit [Fintype V] in
-lemma IsTutteViolator.lt_oddComponents_induce_compl (h : G.IsTutteViolator S) :
-  (G.induce Sᶜ).oddComponents.ncard > S.ncard := by
-  rwa [IsTutteViolator, Subgraph.deleteVerts, Subgraph.verts_top,
-      ← Set.compl_eq_univ_diff, ← G.induce_eq_coe_induce_top] at h
-
-omit [Fintype V] in
-lemma IsTutteViolator.lt_oddComponents_induce_compl' :
+lemma IsTutteViolator.iff_lt_oddComponents_induce_compl :
   (G.IsTutteViolator S) ↔ (G.induce Sᶜ).oddComponents.ncard > S.ncard := by
   rw [IsTutteViolator, Subgraph.deleteVerts, Subgraph.verts_top,
       ← Set.compl_eq_univ_diff, ← G.induce_eq_coe_induce_top]
@@ -357,7 +351,7 @@ lemma exists_isPerfectMatching_iff_card_eq (h₀ : G.IsMatchableToComponents S)
   have Sleq: S.ncard ≥ (G.induce Sᶜ).oddComponents.ncard := by -- ≤ wg. tutte
     by_contra!
     apply nonviolator
-    rwa[IsTutteViolator.lt_oddComponents_induce_compl']
+    rwa[IsTutteViolator.iff_lt_oddComponents_induce_compl]
 
   have oddeq: card (induce Sᶜ G).ConnectedComponent = (induce Sᶜ G).oddComponents.ncard := by
     rw[Fintype.card_eq_nat_card, ← Nat.card_congr (Equiv.Set.univ _)]
@@ -528,7 +522,7 @@ lemma IsEdmondsGallai.isFactorCriticalSet_supp (h : G.IsEdmondsGallai S) :
   rcases exists_tutte_violator with ⟨Q, hQ⟩
 
   let T := S ∪ ↑((Subtype.val '' Q) ∪ {c})
-  have deficency := IsTutteViolator.lt_oddComponents_induce_compl hQ
+  have deficency := IsTutteViolator.iff_lt_oddComponents_induce_compl.1 hQ
 
   have Q_union_c_subset_C: ↑Q ∪ {c} ⊆ C.supp := by
     rw[Set.union_subset_iff]

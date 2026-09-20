@@ -128,7 +128,7 @@ lemma IsVertexConnected.eq_completeGraph_of_card_eq [Fintype V] {k : ℕ}
     · exact e <| (G.mem_neighborSet x y).1 yadj
 
 
-lemma IsVertexConnected.is_vertex_connected_completeGraph_of_ncard_eq {k : ℕ}
+lemma IsVertexConnected.ncard_completeGraph {k : ℕ}
   (h_card : (Set.univ : Set V).ncard = k) (hk : k ≥ 1) :
   (completeGraph V).IsVertexConnected (k - 1) := by
   refine ⟨⟨Set.univ, by simpa[h_card, hk]⟩ , ?_⟩
