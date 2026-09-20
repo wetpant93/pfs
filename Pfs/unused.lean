@@ -13,27 +13,6 @@ variable {S : Set V}
 namespace SimpleGraph
 
 
-lemma iso_closed_is_closed (φ : G ≃g G') (h : G.IsClosed S) : G'.IsClosed (φ '' S) := by
-  rintro ⟨x', hx, y', hy, x'y'⟩
-  simp at hy
-  rcases hx with ⟨x, ⟨xs, imx⟩⟩
-  let imy := RelIso.apply_symm_apply φ y'
-  by_cases h': φ.symm y' ∈ S
-  · exact hy (φ.symm y') h' imy
-  rw[← imx, ← imy] at x'y'
-  exact h ⟨x, xs, φ.symm y', h', (Iso.map_adj_iff φ).1 x'y'⟩
-
-lemma exists_crossing_edge {v w : V}
-  {X : Set V} (h₀ : v ∈ X) (h₁ : w ∉ X) (h : G.Reachable v w) : ∃ x ∈ X, ∃ y ∈ Xᶜ, G.Adj x y := by
-  rcases h with ⟨p⟩
-  induction p with
-   | nil =>
-     contradiction
-   | @cons u x _ ux _ ih =>
-     by_cases h: x ∈ X
-     · exact ih h h₁
-     · exact ⟨u, h₀, x, h, ux⟩
-
 
 lemma ss_comp (C : G.ConnectedComponent) (h₀ : H ≤ G) (h₁ : C.toSimpleGraph ≤ H.induce C.supp) :
   ∃ C' : H.ConnectedComponent, C'.supp = C.supp := by

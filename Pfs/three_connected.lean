@@ -242,8 +242,9 @@ private lemma aux₀ [Fintype V] (e : G.Adj x y) (h_card : Fintype.card V > 4)
 
 
 lemma exists_min_comp_card [Nonempty V] [Fintype V] :
-  ∃ C : G.ConnectedComponent, ∀ C' : G.ConnectedComponent, C.supp.ncard ≤ C'.supp.ncard :=
-  Finite.exists_min _
+  ∃ C : G.ConnectedComponent, ∀ C' : G.ConnectedComponent, C.supp.ncard ≤ C'.supp.ncard := by
+  haveI : Finite G.ConnectedComponent := Quot.finite _
+  exact Finite.exists_min _
 
 lemma Set.three_le_ncard {x y z : V} : ({x,y,z} : Set V).ncard ≤ 3 := by
   linarith[Set.ncard_insert_le x ({y,z} : Set V),
