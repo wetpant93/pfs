@@ -20,7 +20,7 @@ namespace SimpleGraph
 abbrev ι : G.induce S ↪g G := Embedding.induce S
 
 def IsFactorCriticalSet (G : SimpleGraph V) (S : Set V) : Prop :=
-  S.Nonempty ∧ ∀ v ∈ S, ∃ M : G.Subgraph, M.IsMatching ∧ M.support = S \ {v}
+  S.Nonempty ∧ ∀ v ∈ S, ∃ M : G.Subgraph, M.IsMatching ∧ M.verts = S \ {v}
 
 def IsMatchableToComponents (S : Set V) : Prop :=
   ∃ (f : S → (G.induce Sᶜ).ConnectedComponent),
@@ -68,7 +68,7 @@ lemma IsFactorCriticalSet.odd_ncard [Fintype V]
   obtain ⟨v, vs⟩ := h.1
   rcases (h.2 v vs) with ⟨M, hM⟩
   rw[← Set.ncard_diff_singleton_add_one vs, ← Nat.not_even_iff_odd, Nat.even_add_one,
-      not_not, ← hM.2, Set.ncard_eq_toFinset_card', hM.1.support_eq_verts]
+      not_not, ← hM.2, Set.ncard_eq_toFinset_card']
   exact hM.1.even_card
 
 lemma Iso.ncard_supp_map_eq (φ : G ≃g G') (C : G.ConnectedComponent) :
@@ -267,6 +267,7 @@ lemma exists_isPerfectMatching_iff_card_eq (h₀ : G.IsMatchableToComponents S)
 
     have hd: Pairwise fun s s' ↦ Disjoint (M s).support (M s').support := by
       intro s s' h
+      rw[(hM s).support_eq_verts, (hM s').support_eq_verts]
       rw[hM', hM']
       exact Disjoint.mono (by simp) (by simp) <|
             ((G.induce Sᶜ).pairwise_disjoint_supp_connectedComponent (finj.ne h))
@@ -297,7 +298,7 @@ lemma exists_isPerfectMatching_iff_card_eq (h₀ : G.IsMatchableToComponents S)
         rw[verts_iSup] at hC
         rcases hC with ⟨C, ⟨⟨s, hs'⟩, vC⟩⟩
         dsimp at hs'
-        rw[← IsMatching.support_eq_verts, hM' s] at hs'
+        rw[hM' s] at hs'
         · rw[← hs'] at vC
           have: G.ι.toHom ⟨v, vc⟩ = (⟨v, vc⟩ : ↑(Sᶜ)) := rfl
           rw[← hw, this, Subtype.val_inj] at hv
@@ -308,7 +309,6 @@ lemma exists_isPerfectMatching_iff_card_eq (h₀ : G.IsMatchableToComponents S)
             exact h2 rfl
           · exact ((G.induce Sᶜ).pairwise_disjoint_supp_connectedComponent (finj.ne ws)).le_bot <|
                   ⟨c_mem w, h1⟩
-        exact hM s
       · exact hcM
       exact hP'
 
@@ -336,7 +336,7 @@ lemma exists_isPerfectMatching_iff_card_eq (h₀ : G.IsMatchableToComponents S)
           refine ⟨⟨v, hv⟩, ⟨?_, rfl⟩⟩
           rw[Set.mem_iUnion]
           use s
-          rw[← IsMatching.support_eq_verts <| hM s, hM' s, hs.1]
+          rw[hM' s, hs.1]
           exact ⟨vC, hv'⟩
 
     exact ⟨pMatch, ⟨IsMatching.sup hP' hcM P_D_cM, this⟩⟩
@@ -497,7 +497,7 @@ lemma IsEdmondsGallai.isFactorCriticalSet_supp (h : G.IsEdmondsGallai S) :
     let M' := M.map (G.induce Sᶜ).ι.toHom
     let hM' := hM₀.map (G.induce Sᶜ).ι.toHom (G.induce Sᶜ).ι.injective
     apply hC.2 M' hM'
-    rw[IsMatching.support_eq_verts hM', map_verts, isSpanning_iff.1 hM₁]
+    rw[map_verts, isSpanning_iff.1 hM₁]
     ext x; constructor
     · rintro ⟨⟨_, ha⟩, ⟨_, rfl⟩⟩
       exact ha
