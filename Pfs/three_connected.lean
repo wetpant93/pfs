@@ -262,35 +262,35 @@ lemma three_compl_nonempty [Fintype V] (x y z : V) (h_card : Fintype.card V > 4)
   omega
 
 noncomputable
-def score_sep' [Fintype V] (x y z : V) (h_card : Fintype.card V > 4) :
+def score_sep [Fintype V] (x y z : V) (h_card : Fintype.card V > 4) :
   (G.induce {x,y,z}ᶜ).ConnectedComponent := by
   classical
   have nonempty := three_compl_nonempty x y z h_card
   exact ((G.induce {x,y,z}ᶜ).exists_min_comp_card).choose
 
 
-lemma score_sep'_prop [Fintype V]
+lemma score_sep_prop [Fintype V]
   (x y z : V) (h_card : Fintype.card V > 4) (C : (G.induce {x,y,z}ᶜ).ConnectedComponent) :
-  (G.score_sep' x y z h_card).supp.ncard ≤ C.supp.ncard := by
+  (G.score_sep x y z h_card).supp.ncard ≤ C.supp.ncard := by
   classical
   have nonempty := three_compl_nonempty x y z h_card
   exact ((G.induce {x,y,z}ᶜ).exists_min_comp_card).choose_spec C
 
 
-lemma score_sep_min' [Fintype V] (h_card : Fintype.card V > 4)
+lemma score_sep_min [Fintype V] (h_card : Fintype.card V > 4)
   (h_exists : ∃ x y z, G.Adj x y ∧ G.IsSeparator {x, y, z}) :
   ∃ (x y z : V), G.Adj x y ∧ G.IsSeparator {x, y, z} ∧
   ∀ (x' y' z' : V), G.Adj x' y' ∧ G.IsSeparator {x', y', z'} →
-    (G.score_sep' x y z h_card).supp.ncard ≤ (G.score_sep' x' y' z' h_card).supp.ncard := by
+    (G.score_sep x y z h_card).supp.ncard ≤ (G.score_sep x' y' z' h_card).supp.ncard := by
   classical
   let P := fun (n : ℕ) ↦ ∃ (x y z : V)
                             (e : G.Adj x y)
                             (hz : G.IsSeparator {x,y,z}) ,
-                            (G.score_sep' x y z h_card).supp.ncard = n
+                            (G.score_sep x y z h_card).supp.ncard = n
 
   have hP_exists : ∃ n, P n := by
     obtain ⟨x, y, z, ⟨e, hz⟩⟩ := h_exists
-    refine ⟨(G.score_sep' x y z h_card).supp.ncard, ⟨x,y,z,e,hz,rfl⟩⟩
+    refine ⟨(G.score_sep x y z h_card).supp.ncard, ⟨x,y,z,e,hz,rfl⟩⟩
   rcases Nat.find_spec hP_exists with ⟨x,y,z, ⟨h₀,h₁,h₂⟩⟩
   refine ⟨x, y, z, h₀, h₁, ?_⟩
   intro x' y' z' h'
@@ -306,12 +306,11 @@ lemma exists_edge_induced {S : Set V} (e : G.Adj x y) (hx : x ∈ S) (hy : y ∈
 
 lemma not_conn_exists_comps [Nonempty V] (h : ¬G.Connected) :
   ∃ C D : G.ConnectedComponent, C ≠ D := by
-  contrapose! h
-  rw[connected_iff_exists_forall_reachable]
+  rw[connected_iff_exists_forall_reachable] at h
+  push_neg at h
   obtain ⟨x⟩ := ‹Nonempty V›
-  use x
-  intro y
-  exact ConnectedComponent.eq.1 <| h (G.connectedComponentMk x) (G.connectedComponentMk y)
+  obtain ⟨y, _⟩ := h x
+  exact ⟨G.connectedComponentMk x, G.connectedComponentMk y, by simpa⟩
 
 
 lemma not_conn_comp_ne [Nonempty V] (h : ¬G.Connected) (C : G.ConnectedComponent) :
@@ -361,12 +360,12 @@ lemma aux_main [Fintype V] (h : G.IsVertexConnected 3) (h_card : Fintype.card V 
   obtain ⟨x₀, y₀, xy₀⟩ := h.exists_edge (by decide)
   have not_conn_xy := no_edge x₀ y₀ xy₀
   obtain ⟨z₀, hz⟩ := aux₀ xy₀ h_card h not_conn_xy
-  obtain ⟨x, y, z, xy, h_sep, h_min⟩ := G.score_sep_min' h_card (by refine ⟨x₀, y₀, z₀, xy₀, hz⟩)
+  obtain ⟨x, y, z, xy, h_sep, h_min⟩ := G.score_sep_min h_card (by refine ⟨x₀, y₀, z₀, xy₀, hz⟩)
 
   have h_sep_min: G.IsMinimumSeparator {x,y,z} :=
     h.is_minimum_separator_of_ncard_le h_sep Set.three_le_ncard
 
-  obtain ⟨v, hv⟩ := h_sep_min.adj_comp (score_sep' x y z h_card) z (by simp)
+  obtain ⟨v, hv⟩ := h_sep_min.adj_comp (score_sep x y z h_card) z (by simp)
   have not_conn_zv := no_edge z v hv.2
   obtain ⟨w, h_zv_sep⟩ := aux₀ hv.2 h_card h not_conn_zv
   have nonempty_compl := three_compl_nonempty z ↑v w h_card
@@ -391,13 +390,13 @@ lemma aux_main [Fintype V] (h : G.IsVertexConnected 3) (h_card : Fintype.card V 
 
   have hd : ↑d ∈ ({x,y,z}ᶜ : Set V) := Dss_compl <| Subtype.val_injective.mem_set_image.2 vd.1
 
-  have dscore: ↑d ∈ Subtype.val '' (G.score_sep' x y z h_card).supp := by
+  have dscore: ↑d ∈ Subtype.val '' (G.score_sep x y z h_card).supp := by
     obtain ⟨v', d', vd', hv', hd'⟩ := exists_edge_induced vd.2 v.property hd
     have veqv': v' = v := by grind
     exact hd' ▸ Subtype.val_injective.mem_set_image.2 <|
           ConnectedComponent.mem_supp_of_adj_mem_supp _ hv.1 (veqv' ▸ vd')
 
-  have Dss: ↑D.supp ⊆ Subtype.val '' (G.score_sep' x y z h_card).supp := by
+  have Dss: ↑D.supp ⊆ Subtype.val '' (G.score_sep x y z h_card).supp := by
     rintro _ ⟨a, ⟨ha, rfl⟩⟩
     obtain ⟨Dwalk⟩ := D.reachable_of_mem_supp vd.1 ha
     have walkssD: ∀ t ∈ Dwalk.support, t ∈ D.supp := by
@@ -415,22 +414,20 @@ lemma aux_main [Fintype V] (h : G.IsVertexConnected 3) (h_card : Fintype.card V 
       have: ↑t' ∈ Subtype.val '' D.supp := Subtype.val_injective.mem_set_image.2 <| walkssD t' ht'.1
       exact ht'.2 ▸ Dss_compl this
 
-    have din : ⟨↑d, hd⟩ ∈ (G.score_sep' x y z h_card).supp := by grind
+    have din : ⟨↑d, hd⟩ ∈ (G.score_sep x y z h_card).supp := by grind
     have ain := (ConnectedComponent.mem_supp_iff _ _).1 din ▸
                  ConnectedComponent.sound (Gwalk.induce _ this).reachable
     exact Subtype.val_injective.mem_set_image.2 <| (ConnectedComponent.mem_supp_iff _ _).2 ain.symm
 
 
-  have: D.supp.ncard < (G.score_sep' x y z h_card).supp.ncard := by
+  have: D.supp.ncard < (G.score_sep x y z h_card).supp.ncard := by
      repeat rw[← Set.ncard_image_of_injective _ Subtype.val_injective]
      apply Set.ncard_lt_ncard _ (Set.toFinite _)
      rw[Set.ssubset_iff_exists]
      refine ⟨Dss, ⟨v, by grind⟩⟩
 
-  linarith[(G.score_sep'_prop z ↑v w h_card D),
+  linarith[(G.score_sep_prop z ↑v w h_card D),
           h_min z ↑v w ⟨hv.2, h_zv_sep⟩]
-
-
 
 
 lemma IsSeparator.image_proj (e : G.Adj x y) (hS : x ∉ S ∧ y ∉ S) (h : G.IsSeparator S) :
@@ -545,7 +542,7 @@ private lemma is_three_connected_tutte_helper.{u} (m : ℕ) :
   | succ k ih =>
     intro V _ G h_card h_conn
     obtain ⟨x, y, ⟨e, h⟩⟩ := aux_main h_conn (by simp[h_card])
-    let constructable := ih {z // z ≠ y} (G / e) (by simp[h_card]) h
+    have constructable := ih {z // z ≠ y} (G / e) (by simp[h_card]) h
     exact TutteConstructable.step G (G / e)
           x y e (h_conn.le_degree x) (h_conn.le_degree y) ⟨Iso.refl⟩ constructable
 

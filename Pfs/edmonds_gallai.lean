@@ -198,7 +198,7 @@ lemma deficiency_remove_hall_violator_lt
   classical
   let I := ⋃ x ∈ T, G.connectedComponentsNeighbors x
   let comps := ⋃ x ∈ I, x.supp
-  let comps_closed := IsClosed.biUnion I (fun c ↦ c.supp) (fun c _ ↦ c.isClosed_supp)
+  have comps_closed := IsClosed.biUnion I (fun c ↦ c.supp) (fun c _ ↦ c.isClosed_supp)
   let compsST : Set ↑(S \ ↑T)ᶜ := Subtype.val ⁻¹' ↑compsᶜ
 
   have: Subtype.val '' compsST = Subtype.val '' compsᶜ := by
@@ -342,15 +342,10 @@ lemma exists_isPerfectMatching_iff_card_eq (h₀ : G.IsMatchableToComponents S)
     exact ⟨pMatch, ⟨IsMatching.sup hP' hcM P_D_cM, this⟩⟩
 
   intro h
-  let nonviolator := tutte.1 h S
-
-
-  have iso: G.induce Sᶜ ≃g ((⊤ : G.Subgraph).deleteVerts S).coe := by
-    rw[deleteVerts, Subgraph.verts_top, ← Set.compl_eq_univ_diff, G.induce_eq_coe_induce_top Sᶜ]
 
   have Sleq: S.ncard ≥ (G.induce Sᶜ).oddComponents.ncard := by -- ≤ wg. tutte
     by_contra!
-    apply nonviolator
+    apply tutte.1 h S
     rwa[IsTutteViolator.iff_lt_oddComponents_induce_compl]
 
   have oddeq: card (induce Sᶜ G).ConnectedComponent = (induce Sᶜ G).oddComponents.ncard := by
